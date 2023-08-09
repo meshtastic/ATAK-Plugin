@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/preferences_title" />
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plugin_meshtastic_distance"
+        android:title="@string/preferences_distanceTitle"
+        android:summary="@string/preferences_summary"
+        android:dialogTitle="@string/preferences_dialogTitle"
+        android:defaultValue="1000"/>
+
+</PreferenceScreen>

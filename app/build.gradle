@@ -1,0 +1,221 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// PLUGIN_VERSION is the common version name when describing the plugin.
+// ATAK_VERSION   is for the version of ATAK this plugin should be compatible
+//                with some examples include 3.11.0, 3.11.0.civ 3.11.1.fvey
+//
+////////////////////////////////////////////////////////////////////////////////
+
+buildscript {
+
+    ext.PLUGIN_VERSION = "1.3"
+    ext.ATAK_VERSION = "4.8.1"
+
+    def takdevVersion = '2.+'
+
+    ext.getValueFromPropertiesFile = { propFile, key ->
+        if(!propFile.isFile() || !propFile.canRead())
+            return null
+        def prop = new Properties()
+        def reader = propFile.newReader()
+        try {
+            prop.load(reader)
+        } finally {
+            reader.close()
+        }
+        return prop.get(key)
+    }
+
+    def getProperty = { name, defValue ->
+        def prop = project.properties[name] ?:
+                getValueFromPropertiesFile(project.rootProject.file('local.properties'), name)
+        return (null == prop) ? defValue : prop
+    }
+
+    def urlKey = 'takrepo.url'
+
+    ext.isDevKitEnabled = { ->
+        return getProperty(urlKey, null) != null
+    }
+
+    ext.takrepoUrl = getProperty(urlKey, 'https://localhost/')
+    ext.takrepoUser = getProperty('takrepo.user', 'invalid')
+    ext.takrepoPassword = getProperty('takrepo.password', 'invalid')
+    ext.takdevPlugin = getProperty('takdev.plugin', "${rootDir}/../../atak-gradle-takdev.jar")
+
+    repositories {
+        google()
+        mavenCentral()
+        mavenLocal()
+        maven {
+            url "https://jitpack.io"
+        }
+        maven {
+            url = takrepoUrl
+            credentials {
+                username = takrepoUser
+                password = takrepoPassword
+            }
+        }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.2.2'
+        if(isDevKitEnabled()) {
+            classpath "com.atakmap.gradle:atak-gradle-takdev:${takdevVersion}"
+        } else {
+            classpath files(takdevPlugin)
+        }
+    }
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+        mavenCentral()
+        mavenLocal()
+        maven {
+            url "https://jitpack.io"
+        }
+    }
+}
+
+apply plugin: 'com.android.application'
+//apply plugin: 'com.guardsquare.proguard'
+//apply plugin: 'com.google.protobuf'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-parcelize'
+apply plugin: 'kotlinx-serialization'
+apply plugin: 'atak-takdev-plugin'
+
+android {
+    compileSdkVersion 30
+    buildToolsVersion "30.0.3"
+
+    dexOptions {
+        jumboMode = true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    lintOptions {
+        checkReleaseBuilds true
+        // Or, if you prefer, you can continue to check for errors in release builds,
+        // but continue the build even when errors are found:
+        abortOnError true
+    }
+
+    signingConfigs {
+        debug {
+            def kf = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takDebugKeyFile')
+            def kfp = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takDebugKeyFilePassword')
+            def ka = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takDebugKeyAlias')
+            def kp = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takDebugKeyPassword')
+
+            if (kf == null) {
+                 throw new GradleException("No signing key configured!")
+            }
+ 
+            storeFile file(kf)
+            if (kfp != null) storePassword kfp
+            if (ka != null) keyAlias ka
+            if (kp != null) keyPassword kp
+        }
+        release {
+            def kf = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takReleaseKeyFile')
+            def kfp = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takReleaseKeyFilePassword')
+            def ka = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takReleaseKeyAlias')
+            def kp = getValueFromPropertiesFile(project.rootProject.file('local.properties'), 'takReleaseKeyPassword')
+
+            if (kf == null) {
+                 throw new GradleException("No signing key configured!")
+            }
+
+            storeFile file(kf)
+            if (kfp != null) storePassword kfp
+            if (ka != null) keyAlias ka
+            if (kp != null) keyPassword kp
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            matchingFallbacks = ['sdk']
+        }
+        release {
+            minifyEnabled true
+            proguardFile 'proguard-gradle.txt'
+            signingConfig signingConfigs.release
+            matchingFallbacks = ['odk']
+        }
+    }
+/*
+    proguard {
+        configurations {
+            release {
+                defaultConfiguration 'proguard-android-optimize.txt'
+                configuration 'proguard-gradle.txt'
+            }
+        }
+    }
+*/
+    flavorDimensions "application"
+
+    productFlavors {
+        civ {
+            getIsDefault().set(true)
+            dimension "application"
+            manifestPlaceholders = [atakApiVersion: "com.atakmap.app@" + ATAK_VERSION + ".CIV"]
+        }
+    }
+
+    packagingOptions {
+        exclude 'META-INF/INDEX.LIST'
+    }
+
+    sourceSets {
+        main {
+
+            // It is strongly encouraged that plugin developers do not modify the archiveBaseName, version code logic and version 
+            // name logic to provide for consistency within the community.   
+            setProperty("archivesBaseName", "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION + "-" + getVersionName() + "-" + ATAK_VERSION)
+            defaultConfig.versionCode = getVersionCode()
+            defaultConfig.versionName = PLUGIN_VERSION + " (" + getVersionName() + ") - [" + ATAK_VERSION + "]"
+        }
+
+        // Move the build types to build-types/<type>
+        // For instance, build-types/debug/java, build-types/debug/AndroidManifest.xml, ...
+        // This moves them out of them default location under src/<type>/... which would
+        // conflict with src/ being used by the main source set.
+        // Adding new build types or product flavors should be accompanied
+        // by a similar customization.
+        debug.setRoot('build-types/debug')
+        release.setRoot('build-types/release')
+
+    }
+
+    defaultConfig {
+        minSdkVersion 21
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86"
+        }
+    }
+}
+
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: '*.jar')
+
+    implementation 'com.paulmandal.atak:libcotshrink:1.0.3'
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
+
+
+}

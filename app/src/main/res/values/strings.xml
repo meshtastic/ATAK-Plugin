@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Meshtastic Plugin</string>
+    <!-- description -->
+    <string name="app_desc">Leverages the Meshtastic Android App IMeshService</string>
+
+
+       <string name="preferences_title">Meshtastic Preferences</string>
+        <string name="preferences_summary">summary</string>
+        <string name="preferences_dialogTitle">title</string>
+        <string name="preferences_distanceTitle">title</string>
+        <string name="meshtastic_preferences">meshtastic_preferences</string>
+
+
+</resources>

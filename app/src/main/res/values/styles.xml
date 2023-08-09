@@ -1,0 +1,111 @@
+<resources>
+
+    <!-- Application theme. -->
+    <style name="ATAKPluginTheme" parent="@android:style/Theme.Holo">
+        <item name="android:buttonStyle">@android:style/Widget.Button</item>
+        <item name="android:imageButtonStyle">@android:style/Widget.Button</item>
+        <item name="android:buttonStyleToggle">@android:style/Widget.Button</item>
+        <item name="android:spinnerStyle">@style/ATAKSpinner</item>
+        <item name="android:spinnerItemStyle">@style/ATAKSpinnerItem</item>
+        <item name="android:editTextStyle">@style/ATAKEditText</item>
+    </style>
+
+
+    <style name="ATAKTheme" parent="@android:style/Theme.Holo">
+
+        <!--
+            Revert to old theme's buttons and spinner styles, since they match the colors and sizes
+            we use currently in the toolbar and in dropdowns better.
+            (And because we have to use dialog mode spinners in dropdowns or they crash ATM)
+        -->
+        <item name="android:buttonStyle">@android:style/Widget.Button</item>
+        <item name="android:imageButtonStyle">@android:style/Widget.Button</item>
+        <item name="android:buttonStyleToggle">@android:style/Widget.Button</item>
+        <item name="android:spinnerStyle">@style/ATAKSpinner</item>
+        <item name="android:spinnerItemStyle">@style/ATAKSpinnerItem</item>
+
+        <item name="android:editTextStyle">@style/ATAKEditText</item>
+
+        <!--
+              Use new widgets in dialogs though, since they match better there
+               ISSUE: this doesn't work! apparently android just pulls out a limited set of attributes from
+               these themes/styles, it does *NOT* actually apply them. so we can't change button/spinner style from
+               them. We'll just stick with the old ones in dialogs too for now.
+        -->
+        <!--
+              <item name="android:alertDialogTheme">@style/ATAKDialog</item>
+         <item name="android:alertDialogStyle">@style/ATAKDialog</item>
+        -->
+    </style>
+
+
+    <!--
+        Base application theme, dependent on API level. This theme is replaced
+        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+    -->
+    <style name="AppBaseTheme" parent="android:Theme.Light">
+        <!--
+            Theme customizations available in newer API levels can go in
+            res/values-vXX/styles.xml, while customizations related to
+            backward-compatibility can go here.
+        -->
+    </style>
+
+    <!-- Application theme. -->
+    <style name="AppTheme" parent="@android:style/Theme.Holo">
+        <item name="android:buttonStyle">@android:style/Widget.Button</item>
+        <item name="android:imageButtonStyle">@android:style/Widget.Button</item>
+        <item name="android:buttonStyleToggle">@android:style/Widget.Button</item>
+        <item name="android:spinnerStyle">@style/ATAKSpinner</item>
+        <item name="android:spinnerItemStyle">@style/ATAKSpinnerItem</item>
+        <item name="android:editTextStyle">@style/ATAKEditText</item>
+    </style>
+
+
+    <style name="ATAKSpinner" parent="@android:style/Widget.Spinner">
+        <item name="android:spinnerMode">dialog</item>
+    </style>
+
+    <style name="ATAKEditText" parent="@android:style/Widget.EditText">
+        <!-- Default to non-multi-line edit texts? Probably should do this field-by-field, but we've missed a LOT of them!  -->
+        <!-- <item name="inputType">text</item> -->
+
+        <!-- Make all text fields use the non-fullscreen keyboard. -->
+        <item name="android:imeOptions">flagNoFullscreen</item>
+    </style>
+
+    <!-- ====== Style for use in 9-line and other dropdowns that have very restricted space. ====== -->
+    <style name="FullDropdownStyle" parent="@style/ATAKTheme">
+        <item name="android:buttonStyle">@style/unpaddedButton</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:imeOptions">flagNoExtractUi</item>
+    </style>
+
+
+    <!-- In the new theme, sometimes the spinner text color is turning white. -->
+    <style name="ATAKSpinnerItem" parent="@style/AppTheme">
+        <item name="android:textColor">@android:color/black</item>
+    </style>
+
+    <style name="unpaddedButton" parent="@android:style/Widget.Button">
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">@dimen/fontSize</item>
+    </style>
+
+
+    <!-- ==== Style for ISRV Dark Buttons ==== -->
+    <style name="darkButton" parent="@android:style/Widget.Button">
+        <item name="android:background">@drawable/btn_gray</item>
+        <item name="android:shadowColor">@color/darker_gray</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:shadowRadius">2</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">@dimen/fontSize</item>
+    </style>
+
+
+</resources>

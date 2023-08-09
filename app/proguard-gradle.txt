@@ -1,0 +1,100 @@
+-dontskipnonpubliclibraryclasses
+-dontshrink
+-dontoptimize
+
+############### ACRA specifics
+# we need line numbers in our stack traces otherwise they are pretty useless
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
+
+-applymapping <atak.proguard.mapping>
+-repackageclasses atakplugin.Meshtastic
+
+-keepattributes *Annotation*
+-keepattributes Signature, InnerClasses
+
+
+-keep class * implements android.os.Parcelable {
+  public static final android.os.Parcelable$Creator *;
+}
+
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+# For enumeration classes, see http://proguard.sourceforge.net/manual/examples.html#enumerations
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+
+
+# Preserve all native method names and the names of their classes.
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+-keepclassmembers class * {
+    @org.simpleframework.xml.* *;
+}
+
+
+# For enumeration classes, see http://proguard.sourceforge.net/manual/examples.html#enumerations
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+
+
+-keep class * extends transapps.maps.plugin.tool.Tool {
+}
+-keep class * implements transapps.maps.plugin.lifecycle.Lifecycle {
+}
+
+# overcome an existing bug in the gradle subsystem (3.5.x)
+-keep class module-info
+
+-keepclassmembers class com.atakmap.android.maps.** { *; }
+
+# this is from trying to sign for 4.8 / switching to ProGuard from R8
+
+# Protobufs
+-keep public class * extends com.google.protobuf.GeneratedMessage {*;}
+-keep public class * extends com.google.protobuf.GeneratedMessageLite {*;}
+
+# TODO: review all of these and remove unnecessary ones, this is from trying to sign for 4.8 / switching to ProGuard from R8
+-keep class org.jvnet..** {*;}
+-keep class kotlin.jvm.internal.** {*;}
+-keep class kotlin.coroutines.jvm.internal.** {*;}
+-keep class kotlin.jvm.functions.** {*;}
+-keep class kotlin.coroutines.** {*;}
+-keep class kotlin.collections.** {*;}
+
+-dontwarn module-info
+-dontwarn java.awt.**
+-dontwarn org.xmlpull.**
+-dontwarn org.xml.sax.ContentHandler
+-dontwarn org.xml.sax.XMLReader
+-dontwarn com.sun.activation.viewers.ImageViewer
+-dontwarn com.sun.xml.fastinfoset.stax.StAXDocumentSerializer
+-dontwarn org.jvnet.staxex.XMLStreamWriterEx
+-dontwarn org.jvnet.staxex.XMLStreamReaderEx
+-dontwarn com.sun.xml.fastinfoset.stax.StAXDocumentParser
+-dontwarn java.beans.Introspector
+-dontwarn org.jvnet.fastinfoset.VocabularyApplicationData
+-dontwarn org.jvnet.staxex.Base64Data
+-dontwarn com.sun.activation.viewers.ImageViewerCanvas
+-dontwarn com.sun.activation.viewers.TextEditor
+-dontwarn com.sun.activation.viewers.TextViewer
+-dontwarn java.nio.ByteBuffer
+-dontwarn kotlin.jvm.internal.**
+-dontwarn kotlin.coroutines.jvm.internal.**
+-dontwarn kotlin.jvm.functions.**
+-dontwarn kotlin.coroutines.**
+-dontwarn kotlin.collections.**
+
+-dontwarn java.lang.instrument.ClassFileTransformer
+-dontwarn java.lang.ClassValue
+-dontwarn android.content.res.XmlResourceParser

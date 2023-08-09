@@ -1,0 +1,30 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.atakmap.android.meshtastic.plugin"
+    tools:ignore="GoogleAppIndexingWarning">
+
+    <application 
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:description="@string/app_desc"
+        android:extractNativeLibs="true"
+        android:theme="@style/AppTheme" >
+        <meta-data android:name="plugin-api" android:value="${atakApiVersion}"/>
+        <meta-data android:name="app_desc" android:value="@string/app_desc"/>
+
+
+       <!-- allow for plugin discovery -->
+       <activity android:name="com.atakmap.app.component"
+           tools:ignore="MissingClass">
+           <intent-filter android:label="@string/app_name">
+              <action android:name="com.atakmap.app.component" />
+           </intent-filter>
+       </activity>
+
+
+    </application>
+    <queries>
+        <package android:name="com.geeksville.mesh" />
+    </queries>
+</manifest>
