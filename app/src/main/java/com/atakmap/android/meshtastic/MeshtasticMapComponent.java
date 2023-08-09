@@ -75,6 +75,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
      * Extra data fields from the Meshtastic service
      */
     public static final String EXTRA_CONNECTED = "com.geeksville.mesh.Connected";
+    public static final String EXTRA_DISCONNECTED = "com.geeksville.mesh.disconnected";
     public static final String EXTRA_PERMANENT = "com.geeksville.mesh.Permanent";
 
     public static final String EXTRA_PAYLOAD = "com.geeksville.mesh.Payload";
