@@ -84,7 +84,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
             } else if (chunking) {
                 Log.d(TAG, "Chunking");
-                chunking = false;
                 byte[] combined = new byte[cotSize];
 
                 int i = 0;
@@ -102,12 +101,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
                 if (cotEvent != null && cotEvent.isValid()) {
                     Log.d(TAG, "CoT Received");
-                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                    chunks.clear();                    
+                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);                    
                 } else {
-                    Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
-                    chunks.clear();
+                    Log.d(TAG, "Failed to libcotshrink: " + new String(combined));                    
                 }
+                chunking = false;
+                chunks.clear();                    
             }
             else {
                 CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
