@@ -24,20 +24,25 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
-        Log.d(TAG, action);
+        Log.d(TAG, "ACTION: " + action);
         if (action.equals(MeshtasticMapComponent.ACTION_MESH_CONNECTED)) {
             String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_CONNECTED);
             boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_CONNECTED);
             Log.d(TAG, "Received ACTION_MESH_CONNECTED: " + extraConnected);
-            if (connected)
+
+            if (connected) {
                 MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                MeshtasticMapComponent.mw.setIcon("green");
+            }
         }
         else if (action.equals(MeshtasticMapComponent.ACTION_MESH_DISCONNECTED)) {
             String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_DISCONNECTED);
             boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_DISCONNECTED);
             Log.d(TAG, "Received ACTION_MESH_DISCONNECTED: " + extraConnected);
-            if (connected)
+            if (connected) {
                 MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                MeshtasticMapComponent.mw.setIcon("red");
+            }
         }
         else if (action.equals(MeshtasticMapComponent.ACTION_MESSAGE_STATUS)) {
             int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);

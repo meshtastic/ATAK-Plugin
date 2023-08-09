@@ -81,8 +81,6 @@ allprojects {
 }
 
 apply plugin: 'com.android.application'
-//apply plugin: 'com.guardsquare.proguard'
-//apply plugin: 'com.google.protobuf'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlinx-serialization'

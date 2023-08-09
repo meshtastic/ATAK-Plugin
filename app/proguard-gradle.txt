@@ -56,6 +56,24 @@
 # overcome an existing bug in the gradle subsystem (3.5.x)
 -keep class module-info
 
+
+# These classes use Parcelable
+-keep class com.geeksville.mesh.** { *; }
+
+# ATAK Forwarder Libraries
+-keep class com.google.** {*;}
+-keep class com.siemens.** {*;}
+-keep class com.sun.** {*;}
+-keep class eo.view.** {*;}
+-keep class javax.** {*;}
+-keep class me.dm7.** {*;}
+-keep class org.apache.** {*;}
+-keep class org.w3c.** {*;}
+-keep class org.xml.** {*;}
+-keep class org.xmlpull.** {*;}
+
+
+
 -keepclassmembers class com.atakmap.android.maps.** { *; }
 
 # this is from trying to sign for 4.8 / switching to ProGuard from R8

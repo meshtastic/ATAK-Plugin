@@ -87,6 +87,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
     public static final String STATE_DISCONNECTED = "DISCONNECTED";
     public static final String STATE_DEVICE_SLEEP = "DEVICE_SLEEP";
 
+    public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
     public static List<byte[]> divideArray(byte[] source, int chunksize) {
 
@@ -173,7 +174,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
         view.getContext().registerReceiver(mr, intentFilter);
 
-
         mServiceIntent = new Intent();
         mServiceIntent.setClassName(PACKAGE_NAME, CLASS_NAME);
 
@@ -181,17 +181,21 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
             public void onServiceConnected(ComponentName className, IBinder service) {
                 Log.v(TAG, "Service connected");
                 mMeshService = IMeshService.Stub.asInterface(service);
-                MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                mw.setIcon("green");
             }
 
             public void onServiceDisconnected(ComponentName className) {
                 Log.e(TAG, "Service has unexpectedly disconnected");
                 mMeshService = null;
-                MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                mw.setIcon("red");
             }
         };
         
         view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+
+        mw = new MeshtasticWidget(context, view);
     }
 
 
