@@ -103,10 +103,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 if (cotEvent != null && cotEvent.isValid()) {
                     Log.d(TAG, "CoT Received");
                     CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                    chunks.clear();
-                    chunking = false;
+                    chunks.clear();                    
                 } else {
                     Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
+                    chunks.clear();
                 }
             }
             else {
