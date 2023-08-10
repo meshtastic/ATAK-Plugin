@@ -1,2 +1,2 @@
 # Meshtastic Plugin
- ATAK Plugin for sending CoT to IMeshService
+Offical Meshtastic ATAK Plugin for sending CoT to IMeshService in the Meshtastic Android app.
