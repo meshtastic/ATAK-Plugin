@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Environment;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
@@ -27,10 +28,15 @@ import com.atakmap.android.meshtastic.plugin.R;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinker;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinkerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.Deflater;
+import java.util.zip.GZIPOutputStream;
 
 public class MeshtasticMapComponent extends DropDownMapComponent implements CommsMapComponent.PreSendProcessor {
 
@@ -106,7 +112,9 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
         Log.d(TAG, cotEvent.toString());
         DataPacket dp;
+
         byte[] cotAsBytes = cotShrinker.toByteArrayLossy(cotEvent);
+
         Log.d(TAG, "Size: " + cotAsBytes.length);
 
         if (cotAsBytes.length < 236) {
@@ -122,32 +130,32 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
         List<byte[]> chunkList = divideArray(cotAsBytes, 200);
 
-
         int chunks = (int) Math.floor(cotAsBytes.length / 200);
         chunks++;
-
         Log.d(TAG, "Sending " + chunks);
 
         byte[] chunk_hdr = String.format(Locale.US,"CHUNK_%d_", cotAsBytes.length).getBytes();
-        Log.d(TAG, "Chunk head size: " + chunk_hdr.length);
 
         for (byte[] c : chunkList) {
-            Log.d(TAG, "Size: " + c.length);
-            Log.d(TAG, new String(c));
-
             byte[] combined = new byte[chunk_hdr.length + c.length];
             System.arraycopy(chunk_hdr, 0, combined, 0, chunk_hdr.length);
             System.arraycopy(c, 0, combined, chunk_hdr.length, c.length);
 
-            Log.d(TAG, "Combined length: " + combined.length);
-            Log.d(TAG, new String(combined));
+            // send out 1 chunk
             dp = new DataPacket("^all", combined, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
-            Log.d(TAG, "====");
+        }
+
+        // We're done chunking
+        dp = new DataPacket("^all", new byte[] {'E', 'N', 'D'}, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+        try {
+            mMeshService.send(dp);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -196,6 +204,14 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
 
         mw = new MeshtasticWidget(context, view);
+
+        // Grab all the logcat output for ATAK to help debug
+        try {
+            String filePath = Environment.getExternalStorageDirectory() + "/atak/logcat.txt";
+            Runtime.getRuntime().exec(new String[]{"logcat", "-f", filePath});
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 

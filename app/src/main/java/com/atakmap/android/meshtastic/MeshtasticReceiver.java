@@ -5,17 +5,30 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.atakmap.android.cot.CotMapComponent;
+import com.atakmap.android.cot.CotMarkerRefresher;
+import com.atakmap.android.importexport.CotEventFactory;
+import com.atakmap.android.maps.MapItem;
+import com.atakmap.android.maps.MapView;
+import com.atakmap.android.user.PlacePointTool;
 import com.atakmap.comms.CommsMapComponent;
+import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.log.Log;
+import com.atakmap.coremap.maps.time.CoordinatedTime;
 import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.NodeInfo;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.GZIPInputStream;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
 
@@ -65,10 +78,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     int cotSize = 0;
     protected void receive(Intent intent) {
         DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
-
         int dataType = payload.getDataType();
-
         Log.v(TAG, "handleReceive(), dataType: " + dataType);
+
         if (dataType == 257) {
             String message = new String(payload.getBytes());
             if (message.startsWith("CHUNK")) {
@@ -76,49 +88,58 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 chunking = true;
                 if (cotSize == 0) {
                     cotSize = Integer.parseInt(message.split("_")[1]);
-                    Log.d(TAG, "CoT size: " + cotSize);
+                    Log.d(TAG, "Chunk CoT size: " + cotSize);
                 }
-
-                int chunk_hdr_size = String.format(Locale.US, "CHUNKS_%d_", cotSize).getBytes().length - 1;
+                int chunk_hdr_size = String.format(Locale.US, "CHUNK_%d_", cotSize).getBytes().length;
                 byte[] chunk = new byte[payload.getBytes().length - chunk_hdr_size];
-                Log.d(TAG, "Chunk header size: " + chunk_hdr_size);
                 System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
-
-                Log.d(TAG, "Chunk: " + new String(chunk));
                 chunks.add(chunk);
 
-            } else if (chunking) {
+            } else if (message.startsWith("END") && chunking) {
                 Log.d(TAG, "Chunking");
                 byte[] combined = new byte[cotSize];
 
                 int i = 0;
                 for (byte[] b: chunks) {
-                    Log.d(TAG, new String(b));
-                    Log.d(TAG, "len: " + b.length);
-                    Log.d(TAG, "====");
                     System.arraycopy(b,0, combined, i, b.length);
                     i += b.length;
-                    Log.d(TAG, "i: " + i);
                 }
 
-                Log.d(TAG, "Chunked size: " + i);
-
-                CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
-                if (cotEvent != null && cotEvent.isValid()) {
-                    Log.d(TAG, "CoT Received");
-                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);                    
-                } else {
-                    Log.d(TAG, "Failed to libcotshrink: " + new String(combined));                    
-                }
+                cotSize = 0;
                 chunking = false;
-                chunks.clear();                    
+                chunks.clear();
+
+                try {
+                    CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
+                    if (cotEvent != null && cotEvent.isValid()) {
+                        Log.d(TAG, "Chunked CoT Received");
+
+                        cotEvent.setStale(new CoordinatedTime().addDays(3));
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+
+                        MapItem mi = MapView.getMapView().getMapItem(cotEvent.getUID());
+                        mi.persist(MapView.getMapView().getMapEventDispatcher(), null, this.getClass());
+
+
+                    } else {
+                        Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
+                    }
+                } catch(Throwable e) {
+                    e.printStackTrace();
+                }
+
             }
             else {
-                CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
-                if (cotEvent.isValid()) {
-                    Log.d(TAG, "CoT Received");
-                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                try {
+                    CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
+                    if (cotEvent.isValid()) {
+                        Log.d(TAG, "CoT Received");
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    }
+                } catch (Throwable e) {
+                    e.printStackTrace();
                 }
+
             }
         }
     }
