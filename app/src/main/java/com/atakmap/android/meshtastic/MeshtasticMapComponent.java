@@ -10,6 +10,7 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.provider.ContactsContract;
+import android.widget.Toast;
 
 import com.atakmap.android.ipc.AtakBroadcast.DocumentedIntentFilter;
 import com.geeksville.mesh.MessageStatus;
@@ -110,6 +111,10 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
+        
+        if (mConnectionState == ServiceConnectionState.DISCONNECTED)
+            return;
+
         Log.d(TAG, cotEvent.toString());
         DataPacket dp;
 
@@ -189,19 +194,22 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
             public void onServiceConnected(ComponentName className, IBinder service) {
                 Log.v(TAG, "Service connected");
                 mMeshService = IMeshService.Stub.asInterface(service);
-                mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                mConnectionState = ServiceConnectionState.CONNECTED;
                 mw.setIcon("green");
             }
 
             public void onServiceDisconnected(ComponentName className) {
-                Log.e(TAG, "Service has unexpectedly disconnected");
+                Log.e(TAG, "Service disconnected");
                 mMeshService = null;
-                mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                mConnectionState = ServiceConnectionState.DISCONNECTED;
                 mw.setIcon("red");
             }
         };
         
-        view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+        boolean ret = view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+        if (!ret) {
+            Toast.makeText(MapView._mapView.getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
+        }
 
         mw = new MeshtasticWidget(context, view);
 
@@ -220,5 +228,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         super.onDestroyImpl(context, view);
         view.getContext().unbindService(mServiceConnection);
         view.getContext().unregisterReceiver(mr);
+        mw.destroy();
     }
 }

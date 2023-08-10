@@ -17,7 +17,7 @@ public class MeshtasticWidget extends MarkerIconWidget {
 
     public static final String TAG = "meshtasticWidget";
 
-    private final MapView _mapView;
+    private final MapView _mapView = null;
     private final Context _plugin;
 
 
@@ -53,5 +53,11 @@ public class MeshtasticWidget extends MarkerIconWidget {
 
         Icon icon = builder.build();
         setIcon(icon);
+    }
+
+    public void destroy() {
+        RootLayoutWidget root = (RootLayoutWidget) _mapView.getComponentExtra("rootLayoutWidget");
+        LinearLayoutWidget brLayout = root.getLayout(RootLayoutWidget.BOTTOM_RIGHT);
+        brLayout.removeWidget(this);
     }
 }
