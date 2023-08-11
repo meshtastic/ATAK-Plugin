@@ -29,8 +29,14 @@ import com.atakmap.android.meshtastic.plugin.R;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinker;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinkerFactory;
 
+import org.itadaki.bzip2.BZip2BitInputStream;
+import org.itadaki.bzip2.BZip2BitOutputStream;
+import org.itadaki.bzip2.BZip2OutputStream;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,10 +58,10 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         CONNECTED
     }
 
-    private IMeshService mMeshService;
-    private ServiceConnection mServiceConnection;
+    private static IMeshService mMeshService;
+    private static ServiceConnection mServiceConnection;
 
-    private Intent mServiceIntent;
+    private static Intent mServiceIntent;
 
     public static ServiceConnectionState mConnectionState = ServiceConnectionState.DISCONNECTED;
 
@@ -165,8 +171,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
     }
 
 
-    public void onCreate(final Context context, Intent intent,
-            final MapView view) {
+    public void onCreate(final Context context, Intent intent, MapView view) {
 
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
 
@@ -208,7 +213,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         
         boolean ret = view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {
-            Toast.makeText(MapView._mapView.getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
+            Toast.makeText(MapView.getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
         }
 
         mw = new MeshtasticWidget(context, view);
@@ -220,6 +225,14 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static boolean reconnect() throws RemoteException {
+        boolean ret = MapView.getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+        if (!ret) {
+            Toast.makeText(MapView.getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
+        }
+        return ret;
     }
 
 

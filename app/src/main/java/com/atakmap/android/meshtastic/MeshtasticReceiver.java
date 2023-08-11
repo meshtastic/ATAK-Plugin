@@ -3,6 +3,7 @@ package com.atakmap.android.meshtastic;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.RemoteException;
 
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.cot.CotMarkerRefresher;
@@ -19,16 +20,21 @@ import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.NodeInfo;
 
+import org.itadaki.bzip2.BZip2InputStream;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
 
@@ -42,10 +48,16 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_CONNECTED);
             boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_CONNECTED);
             Log.d(TAG, "Received ACTION_MESH_CONNECTED: " + extraConnected);
-
             if (connected) {
-                MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
-                MeshtasticMapComponent.mw.setIcon("green");
+                try {
+                    boolean ret = MeshtasticMapComponent.reconnect();
+                    if (ret) {
+                        MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                        MeshtasticMapComponent.mw.setIcon("green");
+                    }
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
             }
         }
         else if (action.equals(MeshtasticMapComponent.ACTION_MESH_DISCONNECTED)) {
@@ -103,6 +115,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 for (byte[] b: chunks) {
                     System.arraycopy(b,0, combined, i, b.length);
                     i += b.length;
+                    Log.d(TAG, ""+i);
                 }
 
                 cotSize = 0;
@@ -117,10 +130,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         cotEvent.setStale(new CoordinatedTime().addDays(3));
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
 
-                        MapItem mi = MapView.getMapView().getMapItem(cotEvent.getUID());
-                        mi.persist(MapView.getMapView().getMapEventDispatcher(), null, this.getClass());
-
-
                     } else {
                         Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
                     }
@@ -131,6 +140,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             }
             else {
                 try {
+
                     CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
                     if (cotEvent.isValid()) {
                         Log.d(TAG, "CoT Received");
