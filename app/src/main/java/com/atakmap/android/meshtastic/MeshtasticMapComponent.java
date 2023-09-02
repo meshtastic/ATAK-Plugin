@@ -29,10 +29,6 @@ import com.atakmap.android.meshtastic.plugin.R;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinker;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinkerFactory;
 
-import org.itadaki.bzip2.BZip2BitInputStream;
-import org.itadaki.bzip2.BZip2BitOutputStream;
-import org.itadaki.bzip2.BZip2OutputStream;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -218,6 +214,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
         mw = new MeshtasticWidget(context, view);
 
+        /*
         // Grab all the logcat output for ATAK to help debug
         try {
             String filePath = Environment.getExternalStorageDirectory() + "/atak/logcat.txt";
@@ -225,6 +222,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        */
     }
 
     public static boolean reconnect() throws RemoteException {

@@ -20,7 +20,7 @@ import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.NodeInfo;
 
-import org.itadaki.bzip2.BZip2InputStream;
+
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
