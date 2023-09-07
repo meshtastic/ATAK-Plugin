@@ -16,7 +16,8 @@
 
        <!-- allow for plugin discovery -->
        <activity android:name="com.atakmap.app.component"
-           tools:ignore="MissingClass">
+           tools:ignore="MissingClass"
+           android:exported="true">
            <intent-filter android:label="@string/app_name">
               <action android:name="com.atakmap.app.component" />
            </intent-filter>

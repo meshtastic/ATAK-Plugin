@@ -8,7 +8,7 @@
 
 buildscript {
 
-    ext.PLUGIN_VERSION = "1.3"
+    ext.PLUGIN_VERSION = "1.0.2"
     ext.ATAK_VERSION = "4.8.1"
 
     def takdevVersion = '2.+'
@@ -87,8 +87,8 @@ apply plugin: 'kotlinx-serialization'
 apply plugin: 'atak-takdev-plugin'
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion "30.0.3"
+    compileSdkVersion 33
+    buildToolsVersion "34.0.0"
 
     dexOptions {
         jumboMode = true

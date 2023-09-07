@@ -60,10 +60,6 @@
 # These classes use Parcelable
 -keep class com.geeksville.mesh.** { *; }
 
-<<<<<<< HEAD
-# ATAK Forwarder Libraries
-=======
->>>>>>> aa1549a6a8b4cfcecd8a437bb9713abc62753cba
 -keep class com.google.** {*;}
 -keep class com.siemens.** {*;}
 -keep class com.sun.** {*;}
