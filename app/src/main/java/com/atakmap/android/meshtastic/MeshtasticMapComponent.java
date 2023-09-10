@@ -204,7 +204,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         }
 
         mw = new MeshtasticWidget(context, view);
-
+/*
         // Grab all the logcat output for ATAK to help debug
         try {
             String filePath = Environment.getExternalStorageDirectory() + "/atak/logcat.txt";
@@ -212,6 +212,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+*/
     }
 
     public static boolean reconnect() throws RemoteException {
