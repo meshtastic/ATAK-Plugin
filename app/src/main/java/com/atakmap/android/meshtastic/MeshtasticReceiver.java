@@ -6,13 +6,6 @@ import android.content.Intent;
 import android.os.RemoteException;
 
 import com.atakmap.android.cot.CotMapComponent;
-import com.atakmap.android.cot.CotMarkerRefresher;
-import com.atakmap.android.importexport.CotEventFactory;
-import com.atakmap.android.maps.MapItem;
-import com.atakmap.android.maps.MapView;
-import com.atakmap.android.user.PlacePointTool;
-import com.atakmap.comms.CommsMapComponent;
-import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.maps.time.CoordinatedTime;
@@ -20,21 +13,9 @@ import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.NodeInfo;
 
-
-
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
 

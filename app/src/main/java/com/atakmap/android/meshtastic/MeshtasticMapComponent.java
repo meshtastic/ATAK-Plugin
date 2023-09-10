@@ -9,10 +9,9 @@ import android.content.ServiceConnection;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.provider.ContactsContract;
 import android.widget.Toast;
 
-import com.atakmap.android.ipc.AtakBroadcast.DocumentedIntentFilter;
+import com.atakmap.android.maps.AbstractMapComponent;
 import com.geeksville.mesh.MessageStatus;
 
 
@@ -21,27 +20,20 @@ import com.atakmap.comms.CommsMapComponent;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.IMeshService;
-import com.atakmap.android.dropdown.DropDownMapComponent;
 
-import com.atakmap.app.preferences.ToolsPreferenceFragment;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinker;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinkerFactory;
 
-import java.io.ByteArrayOutputStream;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.zip.Deflater;
-import java.util.zip.GZIPOutputStream;
 
-public class MeshtasticMapComponent extends DropDownMapComponent implements CommsMapComponent.PreSendProcessor {
+public class MeshtasticMapComponent extends AbstractMapComponent implements CommsMapComponent.PreSendProcessor {
 
     private static final String TAG = "MeshtasticMapComponent";
 
@@ -172,7 +164,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
 
         context.setTheme(R.style.ATAKPluginTheme);
-        super.onCreate(context, intent, view);
         pluginContext = context;
 
         mr = new MeshtasticReceiver();
@@ -214,7 +205,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
         mw = new MeshtasticWidget(context, view);
 
-        /*
         // Grab all the logcat output for ATAK to help debug
         try {
             String filePath = Environment.getExternalStorageDirectory() + "/atak/logcat.txt";
@@ -222,7 +212,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        */
     }
 
     public static boolean reconnect() throws RemoteException {
@@ -236,7 +225,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
 
     @Override
     protected void onDestroyImpl(Context context, MapView view) {
-        super.onDestroyImpl(context, view);
         view.getContext().unbindService(mServiceConnection);
         view.getContext().unregisterReceiver(mr);
         mw.destroy();

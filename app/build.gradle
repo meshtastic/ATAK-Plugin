@@ -9,7 +9,7 @@
 buildscript {
 
     ext.PLUGIN_VERSION = "1.0.2"
-    ext.ATAK_VERSION = "4.8.1"
+    ext.ATAK_VERSION = "4.10.0"
 
     def takdevVersion = '2.+'
 
@@ -59,7 +59,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.2.2'
+        classpath 'com.android.tools.build:gradle:7.4.2'
         if(isDevKitEnabled()) {
             classpath "com.atakmap.gradle:atak-gradle-takdev:${takdevVersion}"
         } else {
@@ -88,7 +88,7 @@ apply plugin: 'atak-takdev-plugin'
 
 android {
     compileSdkVersion 33
-    buildToolsVersion "34.0.0"
+    buildToolsVersion "30.0.3"
 
     dexOptions {
         jumboMode = true
@@ -155,16 +155,7 @@ android {
             matchingFallbacks = ['odk']
         }
     }
-/*
-    proguard {
-        configurations {
-            release {
-                defaultConfiguration 'proguard-android-optimize.txt'
-                configuration 'proguard-gradle.txt'
-            }
-        }
-    }
-*/
+
     flavorDimensions "application"
 
     productFlavors {
@@ -201,7 +192,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 24
+        minSdkVersion 21
         targetSdkVersion 33
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86"
@@ -215,6 +206,4 @@ dependencies {
 
     implementation 'com.paulmandal.atak:libcotshrink:1.0.3'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
-
-
 }
