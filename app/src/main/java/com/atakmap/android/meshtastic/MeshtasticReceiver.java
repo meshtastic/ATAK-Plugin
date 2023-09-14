@@ -85,7 +85,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 }
                 int chunk_hdr_size = String.format(Locale.US, "CHUNK_%d_", cotSize).getBytes().length;
                 byte[] chunk = new byte[payload.getBytes().length - chunk_hdr_size];
-                System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
+                try {
+                    System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Log.d(TAG, "Failed to copy first chunk");
+                }
                 chunks.add(chunk);
 
             } else if (message.startsWith("END") && chunking) {
@@ -94,7 +99,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                 int i = 0;
                 for (byte[] b: chunks) {
-                    System.arraycopy(b,0, combined, i, b.length);
+                    try {
+                        System.arraycopy(b, 0, combined, i, b.length);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Log.d(TAG, "Failed to copy in chunking");
+                    }
                     i += b.length;
                     Log.d(TAG, ""+i);
                 }

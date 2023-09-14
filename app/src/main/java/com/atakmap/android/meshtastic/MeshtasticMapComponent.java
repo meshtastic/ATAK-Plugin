@@ -137,9 +137,12 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
         for (byte[] c : chunkList) {
             byte[] combined = new byte[chunk_hdr.length + c.length];
-            System.arraycopy(chunk_hdr, 0, combined, 0, chunk_hdr.length);
-            System.arraycopy(c, 0, combined, chunk_hdr.length, c.length);
-
+            try {
+                System.arraycopy(chunk_hdr, 0, combined, 0, chunk_hdr.length);
+                System.arraycopy(c, 0, combined, chunk_hdr.length, c.length);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             // send out 1 chunk
             dp = new DataPacket("^all", combined, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
