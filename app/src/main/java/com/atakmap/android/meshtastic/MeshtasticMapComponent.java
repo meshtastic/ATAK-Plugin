@@ -96,7 +96,12 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         int start = 0;
         while (start < source.length) {
             int end = Math.min(source.length, start + chunksize);
-            result.add(Arrays.copyOfRange(source, start, end));
+            try {
+                result.add(Arrays.copyOfRange(source, start, end));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.d(TAG, "Array copy failed in divideArray");
+            }
             start += chunksize;
         }
 
