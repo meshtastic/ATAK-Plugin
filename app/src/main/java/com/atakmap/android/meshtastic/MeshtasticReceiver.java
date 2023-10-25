@@ -50,6 +50,14 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 MeshtasticMapComponent.mw.setIcon("red");
             }
         }
+        else if (action.equals(MeshtasticMapComponent.STATE_DISCONNECTED)) {
+            MeshtasticMapComponent.mw.setIcon("red");
+            MeshtasticMapComponent.deviceConnected = false;
+        }
+        else if (action.equals(MeshtasticMapComponent.STATE_CONNECTED)) {
+            MeshtasticMapComponent.mw.setIcon("green");
+            MeshtasticMapComponent.deviceConnected = true;
+        }
         else if (action.equals(MeshtasticMapComponent.ACTION_MESSAGE_STATUS)) {
             int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);
             MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);

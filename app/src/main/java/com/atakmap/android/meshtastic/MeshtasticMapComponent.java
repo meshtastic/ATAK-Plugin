@@ -96,6 +96,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
     public static final String STATE_DISCONNECTED = "DISCONNECTED";
     public static final String STATE_DEVICE_SLEEP = "DEVICE_SLEEP";
 
+    public static boolean deviceConnected = false;
     public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
     public static List<byte[]> divideArray(byte[] source, int chunksize) {
@@ -114,7 +115,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent implements Comm
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
         
-        if (mConnectionState == ServiceConnectionState.DISCONNECTED)
+        if (mConnectionState == ServiceConnectionState.DISCONNECTED || deviceConnected == false)
             return;
 
         Log.d(TAG, cotEvent.toString());
