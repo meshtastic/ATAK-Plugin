@@ -39,13 +39,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
-            }
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_MESH_DISCONNECTED)) {
-            String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_DISCONNECTED);
-            boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_DISCONNECTED);
-            Log.d(TAG, "Received ACTION_MESH_DISCONNECTED: " + extraConnected);
-            if (connected) {
+            } else {
                 MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
                 MeshtasticMapComponent.mw.setIcon("red");
             }
