@@ -8,7 +8,7 @@
 
 buildscript {
 
-    ext.PLUGIN_VERSION = "1.0.4"
+    ext.PLUGIN_VERSION = "1.0.5"
     ext.ATAK_VERSION = "4.10.0"
 
     def takdevVersion = '2.+'
@@ -81,6 +81,7 @@ allprojects {
 }
 
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.protobuf'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlinx-serialization'
@@ -88,7 +89,7 @@ apply plugin: 'atak-takdev-plugin'
 
 android {
     compileSdkVersion 33
-    buildToolsVersion "30.0.3"
+    buildToolsVersion "34.0.0"
 
     dexOptions {
         jumboMode = true
@@ -155,7 +156,16 @@ android {
             matchingFallbacks = ['odk']
         }
     }
-
+/*
+    proguard {
+        configurations {
+            release {
+                defaultConfiguration 'proguard-android-optimize.txt'
+                configuration 'proguard-gradle.txt'
+            }
+        }
+    }
+*/
     flavorDimensions "application"
 
     productFlavors {
@@ -178,6 +188,11 @@ android {
             setProperty("archivesBaseName", "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION + "-" + getVersionName() + "-" + ATAK_VERSION)
             defaultConfig.versionCode = getVersionCode()
             defaultConfig.versionName = PLUGIN_VERSION + " (" + getVersionName() + ") - [" + ATAK_VERSION + "]"
+
+
+            proto {
+                srcDir 'src/main/protobufs'
+            }
         }
 
         // Move the build types to build-types/<type>
@@ -192,7 +207,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 33
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86"
@@ -204,6 +219,34 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
 
-    implementation 'com.paulmandal.atak:libcotshrink:1.0.3'
+    implementation 'com.paulmandal.atak:libcotshrink:1.0.4'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
+    implementation 'com.google.protobuf:protobuf-kotlin-lite:3.21.12'
+
+
+
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.21.9'
+    }
+    plugins {
+        javalite {
+            // The codegen for lite comes as a separate artifact
+            artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option 'lite'
+                }
+                kotlin {
+                    option 'lite'
+                }
+            }
+        }
+    }
 }
