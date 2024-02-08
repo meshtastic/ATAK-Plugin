@@ -50,8 +50,9 @@
 
 -keep class * extends transapps.maps.plugin.tool.Tool {
 }
--keep class * implements transapps.maps.plugin.lifecycle.Lifecycle {
+-keep class * implements gov.tak.api.plugin.IPlugin {
 }
+
 
 # overcome an existing bug in the gradle subsystem (3.5.x)
 -keep class module-info

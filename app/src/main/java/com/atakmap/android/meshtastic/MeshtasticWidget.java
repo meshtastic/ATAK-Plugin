@@ -17,8 +17,8 @@ public class MeshtasticWidget extends MarkerIconWidget {
 
     public static final String TAG = "meshtasticWidget";
 
-    private final MapView _mapView;
-    private final Context _plugin;
+    private MapView _mapView = null;
+    private Context _plugin;
 
 
     public MeshtasticWidget(Context plugin, MapView mapView) {

@@ -3,7 +3,7 @@
 <plugin>
 
     <extension
-        type="transapps.maps.plugin.lifecycle.Lifecycle"
+        type="gov.tak.api.plugin.IPlugin"
         impl="com.atakmap.android.meshtastic.plugin.MeshtasticLifecycle"
         singleton="true" />
 
