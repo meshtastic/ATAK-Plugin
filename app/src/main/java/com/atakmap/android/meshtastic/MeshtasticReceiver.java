@@ -7,7 +7,11 @@ import android.os.Parcel;
 import android.os.RemoteException;
 import android.util.Xml;
 
+import com.atakmap.android.chat.GeoChatService;
+import com.atakmap.android.contact.Contacts;
+import com.atakmap.android.contact.IndividualContact;
 import com.atakmap.android.cot.CotMapComponent;
+import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
@@ -26,6 +30,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
 
@@ -164,70 +169,153 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             try {
 
                 ATAKProtos.TAKPacket tp = ATAKProtos.TAKPacket.parseFrom(payload.getBytes());
-                ATAKProtos.Contact contact = tp.getContact();
-                ATAKProtos.Group group = tp.getGroup();
-                ATAKProtos.Status status = tp.getStatus();
-                ATAKProtos.PLI pli = tp.getPli();
+                if (tp.hasPli()) {
+                    Log.d(TAG, "TAK_PACKET PLI");
+                    ATAKProtos.Contact contact = tp.getContact();
+                    ATAKProtos.Group group = tp.getGroup();
+                    ATAKProtos.Status status = tp.getStatus();
+                    ATAKProtos.PLI pli = tp.getPli();
 
-                double lat = pli.getLatitudeI() * 1e-7;
-                double lng = pli.getLongitudeI() * 1e-7;
-                double alt = pli.getAltitude();
-                int course = pli.getCourse();
-                int speed = pli.getSpeed();
+                    double lat = pli.getLatitudeI() * 1e-7;
+                    double lng = pli.getLongitudeI() * 1e-7;
+                    double alt = pli.getAltitude();
+                    int course = pli.getCourse();
+                    int speed = pli.getSpeed();
 
-                Log.d(TAG, String.format("GPS: %f %f %f", alt, lat ,lng));
+                    Log.d(TAG, String.format("GPS: %f %f %f", alt, lat, lng));
 
-                String callsign = contact.getCallsign();
+                    String callsign = contact.getCallsign();
 
-                CotDetail cotDetail = new CotDetail("detail");
+                    CotDetail cotDetail = new CotDetail("detail");
 
-                CotDetail contactDetail = new CotDetail("contact");
-                contactDetail.setAttribute("callsign", callsign);
-                //contactDetail.setAttribute("phone", "0");
-                //contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
-                cotDetail.addChild(contactDetail);
+                    CotDetail uidDetail = new CotDetail("uid");
+                    uidDetail.setAttribute("Droid", callsign);
 
-                CotDetail groupDetail = new CotDetail("__group");
-                groupDetail.setAttribute("role", ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());
-                groupDetail.setAttribute("name", ATAKProtos.Team.forNumber(group.getTeamValue()).name());
-                cotDetail.addChild(groupDetail);
+                    CotDetail contactDetail = new CotDetail("contact");
+                    contactDetail.setAttribute("callsign", callsign);
+                    contactDetail.setAttribute("endpoint", "*:-1:tcp");
+                    cotDetail.addChild(contactDetail);
 
-                CotDetail statusDetail = new CotDetail("status");
-                statusDetail.setAttribute("battery", String.valueOf(status.getBattery()));
-                cotDetail.addChild(statusDetail);
+                    CotDetail groupDetail = new CotDetail("__group");
+                    groupDetail.setAttribute("role", ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());
+                    groupDetail.setAttribute("name", ATAKProtos.Team.forNumber(group.getTeamValue()).name());
+                    cotDetail.addChild(groupDetail);
 
-                CotDetail trackDetail = new CotDetail("track");
-                trackDetail.setAttribute("speed", String.valueOf(speed));
-                trackDetail.setAttribute("course", String.valueOf(course));
-                cotDetail.addChild(trackDetail);
+                    CotDetail statusDetail = new CotDetail("status");
+                    statusDetail.setAttribute("battery", String.valueOf(status.getBattery()));
+                    cotDetail.addChild(statusDetail);
 
-                CotEvent cotEvent = new CotEvent();
-                cotEvent.setDetail(cotDetail);
-                cotEvent.setUID(callsign);
+                    CotDetail trackDetail = new CotDetail("track");
+                    trackDetail.setAttribute("speed", String.valueOf(speed));
+                    trackDetail.setAttribute("course", String.valueOf(course));
+                    cotDetail.addChild(trackDetail);
 
-                CoordinatedTime time = new CoordinatedTime();
-                cotEvent.setTime(time);
-                cotEvent.setStart(time);
-                cotEvent.setStale(time.addMinutes(10));
+                    CotEvent cotEvent = new CotEvent();
+                    cotEvent.setDetail(cotDetail);
+                    cotEvent.setUID(String.valueOf(UUID.nameUUIDFromBytes(callsign.getBytes())));
 
-                cotEvent.setType("a-f-G-U-C");
+                    CoordinatedTime time = new CoordinatedTime();
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
 
-                cotEvent.setHow("m-e");
+                    cotEvent.setType("a-f-G-U-C");
 
-                CotPoint cotPoint = new CotPoint(lat, lng, CotPoint.UNKNOWN,
-                        CotPoint.UNKNOWN, CotPoint.UNKNOWN);
-                cotEvent.setPoint(cotPoint);
+                    cotEvent.setHow("m-e");
 
-                if (cotEvent.isValid())
-                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                else
-                    Log.e(TAG, "cotEvent was not valid");
+                    CotPoint cotPoint = new CotPoint(lat, lng, CotPoint.UNKNOWN,
+                            CotPoint.UNKNOWN, CotPoint.UNKNOWN);
+                    cotEvent.setPoint(cotPoint);
+
+                    if (cotEvent.isValid())
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    else
+                        Log.e(TAG, "cotEvent was not valid");
+
+
+              /*
+            <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+            <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.All Chat Rooms.d22bcfac-2c28-4e0c-8133-172928ba59b7' type='b-t-f' time='2024-02-07T19:02:09.192Z' start='2024-02-07T19:02:09.192Z' stale='2024-02-08T19:02:09.192Z' how='h-g-i-g-o'>
+            <point lat='40.2392345' lon='-19.7690137' hae='9999999.0' ce='9999999.0' le='9999999.0' />
+                <detail>
+                    <__chat parent='RootContactGroup' groupOwner='false' messageId='d22bcfac-2c28-4e0c-8133-172928ba59b7' chatroom='All Chat Rooms' id='All Chat Rooms' senderCallsign='FALKE lol'>
+                        <chatgrp uid0='ANDROID-e612f0e922b56a63' uid1='All Chat Rooms' id='All Chat Rooms'/>
+                    </__chat>
+                    <link uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' relation='p-p'/>
+                    <__serverdestination destinations='0.0.0.0:4242:tcp:ANDROID-e612f0e922b56a63'/>
+                    <remarks source='BAO.F.ATAK.ANDROID-e612f0e922b56a63' to='All Chat Rooms' time='2024-02-07T19:02:09.192Z'>lol</remarks>
+                </detail>
+            </event>
+             */
+                } else if (tp.hasChat()) {
+                    Log.d(TAG, "TAK_PACKET GEOCHAT");
+
+                    ATAKProtos.Contact contact = tp.getContact();
+                    ATAKProtos.GeoChat geoChat = tp.getChat();
+
+                    String callsign = contact.getCallsign();
+                    String value = String.valueOf(UUID.nameUUIDFromBytes(callsign.getBytes()));
+                    String msgId = String.valueOf(UUID.randomUUID());
+
+                    CotDetail cotDetail = new CotDetail("detail");
+
+                    CoordinatedTime time = new CoordinatedTime();
+
+                    CotDetail chatDetail = new CotDetail("__chat");
+                    chatDetail.setAttribute("parent", "RootContactGroup");
+                    chatDetail.setAttribute("groupOwner", "false");
+                    chatDetail.setAttribute("messageId", msgId);
+                    chatDetail.setAttribute("chatroom", "All Chat Rooms");
+                    chatDetail.setAttribute("id", "All Chat Rooms");
+                    chatDetail.setAttribute("senderCallsign", callsign);
+                    cotDetail.addChild(chatDetail);
+
+                    CotDetail chatgrp = new CotDetail("chatgrp");
+                    chatgrp.setAttribute("uid0", value);
+                    chatgrp.setAttribute("uid1", "All Chat Rooms");
+                    chatgrp.setAttribute("id", "All Chat Rooms");
+                    chatDetail.addChild(chatgrp);
+
+                    CotDetail linkDetail = new CotDetail("link");
+                    linkDetail.setAttribute("uid", value);
+                    linkDetail.setAttribute("type", "a-f-G-U-C");
+                    linkDetail.setAttribute("relation", "p-p");
+                    cotDetail.addChild(linkDetail);
+
+                    CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
+                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    cotDetail.addChild(serverDestinationDetail);
+
+                    CotDetail remarksDetail = new CotDetail("remarks");
+                    remarksDetail.setAttribute("source", String.format("BAO.F.ATAK.%s", value));
+                    remarksDetail.setAttribute("to", "All Chat Rooms");
+                    remarksDetail.setAttribute("time", time.toString());
+                    remarksDetail.setInnerText(geoChat.getMessage());
+                    cotDetail.addChild(remarksDetail);
+
+                    CotEvent cotEvent = new CotEvent();
+                    cotEvent.setDetail(cotDetail);
+                    cotEvent.setUID("GeoChat." + value + ".All Chat Rooms." + msgId);
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
+                    cotEvent.setType("b-t-f");
+                    cotEvent.setHow("h-g-i-g-o");
+
+                    CotPoint cotPoint = new CotPoint(0, 0, CotPoint.UNKNOWN,
+                            CotPoint.UNKNOWN, CotPoint.UNKNOWN);
+                    cotEvent.setPoint(cotPoint);
+
+                    if (cotEvent.isValid())
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    else
+                        Log.e(TAG, "cotEvent was not valid");
+
+                }
 
             } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();
             }
-
-
         }
     }
 }

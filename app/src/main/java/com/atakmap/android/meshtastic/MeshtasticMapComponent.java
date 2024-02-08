@@ -1,6 +1,8 @@
 
 package com.atakmap.android.meshtastic;
 
+import static com.atakmap.android.maps.MapView.getMapView;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -117,7 +119,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
-        
+
         if (mConnectionState == ServiceConnectionState.DISCONNECTED)
             return;
 
@@ -127,41 +129,63 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         CotDetail cotDetail = cotEvent.getDetail();
         Log.d(TAG, cotDetail.toString());
 
-        // is this our self marker outgoing CoT, if so do tak_payload portnum
+        int eventType = -1;
+        double divisor = 1e-7;
+        XmlPullParserFactory factory = null;
+        XmlPullParser xpp = null;
+        String callsign = getMapView().getDeviceCallsign();
+        double alt = getMapView().getSelfMarker().getPoint().getAltitude();
+        double lat = getMapView().getSelfMarker().getPoint().getLatitude();
+        double lng = getMapView().getSelfMarker().getPoint().getLongitude();
+        Log.d(TAG, String.format("ALT:%f LAT:%f LNG:%f", alt, lat, lng));
+
+        try {
+            factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(true);
+            xpp = factory.newPullParser();
+            xpp.setInput(new StringReader(cotDetail.toString()));
+            eventType = xpp.getEventType();
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        // self PLI report
         if (cotEvent.getUID().equals(getMapView().getSelfMarker().getUID())) {
+            /*
+            <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+            <event version='2.0' uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' time='2024-02-06T19:27:18.246Z' start='2024-02-06T19:27:18.246Z' stale='2024-02-06T19:33:33.246Z' how='h-e'>
+            <point lat='8.8813837' lon='-3.570282' hae='9999999.0' ce='9999999.0' le='9999999.0' />
+            <detail>
+                <takv os='34' version='4.8.1.5 (475f848f).1675356844-CIV' device='GOOGLE PIXEL 8' platform='ATAK-CIV'/>
+                <contact endpoint='0.0.0.0:4242:tcp' phone='+16892809647' callsign='FALKE'/>
+                <uid Droid='FALKE'/>
+                <precisionlocation altsrc='???' geopointsrc='USER'/>
+                <__group role='Team Member' name='Cyan'/>
+                <status battery='100'/>
+                <track course='45.77672420041893' speed='0.0'/>
+            </detail>
+            </event>
+             */
             Log.d(TAG, "self marker PLI");
-            
+
             int battery = 0, course = 0, speed = 0;
             String role = null, name = null;
-            String callsign = getMapView().getDeviceCallsign();
-            double alt = getMapView().getSelfMarker().getPoint().getAltitude();
-            double lat = getMapView().getSelfMarker().getPoint().getLatitude();
-            double lng = getMapView().getSelfMarker().getPoint().getLongitude();
-
-            Log.d(TAG, String.format("GPS: %f %f %f", alt, lat ,lng));
 
             try {
-                XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
-                factory.setNamespaceAware(true);
-                XmlPullParser xpp = factory.newPullParser();
-                xpp.setInput( new StringReader(cotDetail.toString()));
-                int eventType = xpp.getEventType();
-
                 while (eventType != XmlPullParser.END_DOCUMENT) {
-                    if(eventType == XmlPullParser.START_TAG) {
+                    if (eventType == XmlPullParser.START_TAG) {
                         if (xpp.getName().equalsIgnoreCase("contact")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "Contact has " + + attributeCount);
-                            for (int i=0; i< attributeCount; i++) {
-                                Log.d(TAG, xpp.getAttributeName(i) + "=" + xpp.getAttributeValue(i));
+                            Log.d(TAG, "Contact has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("callsign"))
                                     callsign = xpp.getAttributeValue(i);
                             }
                         } else if (xpp.getName().equalsIgnoreCase("__group")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "__group has " + + attributeCount);
-                            for (int i=0; i< attributeCount; i++) {
-                                Log.d(TAG, xpp.getAttributeName(i) + "=" + xpp.getAttributeValue(i));
+                            Log.d(TAG, "__group has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("role"))
                                     role = xpp.getAttributeValue(i);
                                 else if (xpp.getAttributeName(i).equalsIgnoreCase("name"))
@@ -169,17 +193,15 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                             }
                         } else if (xpp.getName().equalsIgnoreCase("status")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "status has " + + attributeCount);
-                            for (int i=0; i< attributeCount; i++) {
-                                Log.d(TAG, xpp.getAttributeName(i) + "=" + xpp.getAttributeValue(i));
+                            Log.d(TAG, "status has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("battery"))
                                     battery = Integer.parseInt(xpp.getAttributeValue(i));
                             }
                         } else if (xpp.getName().equalsIgnoreCase("track")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "track has " + + attributeCount);
-                            for (int i=0; i< attributeCount; i++) {
-                                Log.d(TAG, xpp.getAttributeName(i) + "=" + xpp.getAttributeValue(i));
+                            Log.d(TAG, "track has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("course"))
                                     course = Double.valueOf(xpp.getAttributeValue(i)).intValue();
                                 else if (xpp.getAttributeName(i).equalsIgnoreCase("speed"))
@@ -192,10 +214,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             } catch (XmlPullParserException | IOException e) {
                 e.printStackTrace();
             }
-
-            // represent 1e-7 as a double
-
-            double divisor = 1e-7;
 
             ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
             contact.setCallsign(callsign);
@@ -219,6 +237,65 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             tak_packet.setStatus(status);
             tak_packet.setGroup(group);
             tak_packet.setPli(pli);
+
+            Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+
+            dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            try {
+                mMeshService.send(dp);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
+        // GeoChat All Chat Rooms
+        } else if (cotEvent.getType().equalsIgnoreCase("b-t-f") && cotEvent.getUID().contains("All Chat Rooms")) {
+            Log.d(TAG, "All Chat Rooms");
+            /*
+            <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+            <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.All Chat Rooms.d22bcfac-2c28-4e0c-8133-172928ba59b7' type='b-t-f' time='2024-02-07T19:02:09.192Z' start='2024-02-07T19:02:09.192Z' stale='2024-02-08T19:02:09.192Z' how='h-g-i-g-o'>
+            <point lat='40.2392345' lon='-19.7690137' hae='9999999.0' ce='9999999.0' le='9999999.0' />
+                <detail>
+                    <__chat parent='RootContactGroup' groupOwner='false' messageId='d22bcfac-2c28-4e0c-8133-172928ba59b7' chatroom='All Chat Rooms' id='All Chat Rooms' senderCallsign='FALKE lol'>
+                        <chatgrp uid0='ANDROID-e612f0e922b56a63' uid1='All Chat Rooms' id='All Chat Rooms'/>
+                    </__chat>
+                    <link uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' relation='p-p'/>
+                    <__serverdestination destinations='0.0.0.0:4242:tcp:ANDROID-e612f0e922b56a63'/>
+                    <remarks source='BAO.F.ATAK.ANDROID-e612f0e922b56a63' to='All Chat Rooms' time='2024-02-07T19:02:09.192Z'>lol</remarks>
+                </detail>
+            </event>
+             */
+            String message = null;
+            try {
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG) {
+                        Log.d(TAG, xpp.getName());
+                        if (xpp.getName().equalsIgnoreCase("remarks")) {
+                            if (xpp.next() == XmlPullParser.TEXT)
+                                message = xpp.getText();
+                        } else if (xpp.getName().equalsIgnoreCase("__chat")) {
+                            int attributeCount = xpp.getAttributeCount();
+                            Log.d(TAG, "__chat has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
+                                if (xpp.getAttributeName(i).equalsIgnoreCase("senderCallsign"))
+                                    callsign = xpp.getAttributeValue(i);
+                            }
+                        }
+                    }
+                    eventType = xpp.next();
+                }
+
+            } catch (XmlPullParserException | IOException e) {
+                e.printStackTrace();
+            }
+
+            ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
+            contact.setCallsign(callsign);
+
+            ATAKProtos.GeoChat.Builder geochat = ATAKProtos.GeoChat.newBuilder();
+            geochat.setMessage(message);
+
+            ATAKProtos.TAKPacket.Builder tak_packet = ATAKProtos.TAKPacket.newBuilder();
+            tak_packet.setContact(contact);
+            tak_packet.setChat(geochat);
 
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
 
@@ -324,7 +401,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         
         boolean ret = view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {
-            Toast.makeText(MapView.getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
+            Toast.makeText(getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
         }
 
         mw = new MeshtasticWidget(context, view);
@@ -340,9 +417,9 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     }
 
     public static boolean reconnect() throws RemoteException {
-        boolean ret = MapView.getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+        boolean ret = getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {
-            Toast.makeText(MapView.getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
+            Toast.makeText(getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
         }
         return ret;
     }
