@@ -96,7 +96,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static final String STATE_CONNECTED = "CONNECTED";
     public static final String STATE_DISCONNECTED = "DISCONNECTED";
     public static final String STATE_DEVICE_SLEEP = "DEVICE_SLEEP";
-
     public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
     public static List<byte[]> divideArray(byte[] source, int chunksize) {
