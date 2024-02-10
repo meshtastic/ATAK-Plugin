@@ -8,7 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.os.Environment;
+
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.widget.Toast;
@@ -119,6 +119,10 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
 
+        Log.d(TAG, "callsign: " + getMapView().getDeviceCallsign());
+        Log.d(TAG, "device callsign: " + getMapView().getSelfMarker().getUID());
+
+
         if (mConnectionState == ServiceConnectionState.DISCONNECTED)
             return;
 
@@ -132,7 +136,8 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         double divisor = 1e-7;
         XmlPullParserFactory factory = null;
         XmlPullParser xpp = null;
-        String callsign = getMapView().getDeviceCallsign();
+        String callsign = null;
+        String deviceCallsign = null;
         double alt = getMapView().getSelfMarker().getPoint().getAltitude();
         double lat = getMapView().getSelfMarker().getPoint().getLatitude();
         double lng = getMapView().getSelfMarker().getPoint().getLongitude();
@@ -176,14 +181,14 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                     if (eventType == XmlPullParser.START_TAG) {
                         if (xpp.getName().equalsIgnoreCase("contact")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "Contact has " + +attributeCount);
+                            Log.d(TAG, "Contact has " + attributeCount);
                             for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("callsign"))
                                     callsign = xpp.getAttributeValue(i);
                             }
                         } else if (xpp.getName().equalsIgnoreCase("__group")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "__group has " + +attributeCount);
+                            Log.d(TAG, "__group has " + attributeCount);
                             for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("role"))
                                     role = xpp.getAttributeValue(i);
@@ -192,14 +197,14 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                             }
                         } else if (xpp.getName().equalsIgnoreCase("status")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "status has " + +attributeCount);
+                            Log.d(TAG, "status has " + attributeCount);
                             for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("battery"))
                                     battery = Integer.parseInt(xpp.getAttributeValue(i));
                             }
                         } else if (xpp.getName().equalsIgnoreCase("track")) {
                             int attributeCount = xpp.getAttributeCount();
-                            Log.d(TAG, "track has " + +attributeCount);
+                            Log.d(TAG, "track has " + attributeCount);
                             for (int i = 0; i < attributeCount; i++) {
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("course"))
                                     course = Double.valueOf(xpp.getAttributeValue(i)).intValue();
@@ -216,6 +221,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
             ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
             contact.setCallsign(callsign);
+            contact.setDeviceCallsign(cotEvent.getUID());
 
             ATAKProtos.Group.Builder group = ATAKProtos.Group.newBuilder();
             group.setRole(ATAKProtos.MemberRole.valueOf(role.replace(" ", "")));
@@ -238,6 +244,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             tak_packet.setPli(pli);
 
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+            Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
             dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
@@ -277,6 +284,13 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                                 if (xpp.getAttributeName(i).equalsIgnoreCase("senderCallsign"))
                                     callsign = xpp.getAttributeValue(i);
                             }
+                        } else if (xpp.getName().equalsIgnoreCase("link")) {
+                            int attributeCount = xpp.getAttributeCount();
+                            Log.d(TAG, "link has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
+                                if (xpp.getAttributeName(i).equalsIgnoreCase("uid"))
+                                    deviceCallsign = xpp.getAttributeValue(i);
+                            }
                         }
                     }
                     eventType = xpp.next();
@@ -288,15 +302,90 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
             ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
             contact.setCallsign(callsign);
+            contact.setDeviceCallsign(deviceCallsign);
 
             ATAKProtos.GeoChat.Builder geochat = ATAKProtos.GeoChat.newBuilder();
             geochat.setMessage(message);
+            geochat.setTo("All Chat Rooms");
 
             ATAKProtos.TAKPacket.Builder tak_packet = ATAKProtos.TAKPacket.newBuilder();
             tak_packet.setContact(contact);
             tak_packet.setChat(geochat);
 
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+            Log.d(TAG, "Sending: " + tak_packet.build().toString());
+
+            dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            try {
+                mMeshService.send(dp);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
+
+        } else if (cotEvent.getType().equalsIgnoreCase("b-t-f")) {
+            Log.d(TAG, "DM Chat");
+                    /*
+                    <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+                    <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.ANDROID-b5c2b8340a0a2cd5.23c1f487-7111-4995-89f5-7709a9c99518' type='b-t-f' time='2024-02-07T19:04:06.683Z' start='2024-02-07T19:04:06.683Z' stale='2024-02-08T19:04:06.683Z' how='h-g-i-g-o'>
+                    <point lat='40.2392345' lon='-19.7690137' hae='9999999.0' ce='9999999.0' le='9999999.0' />
+                    <detail>
+                        <__chat parent='RootContactGroup' groupOwner='false' messageId='23c1f487-7111-4995-89f5-7709a9c99518' chatroom='HUSKER lol' id='ANDROID-b5c2b8340a0a2cd5' senderCallsign='FALKE lol'>
+                            <chatgrp uid0='ANDROID-e612f0e922b56a63' uid1='ANDROID-b5c2b8340a0a2cd5' id='ANDROID-b5c2b8340a0a2cd5'/>
+                        </__chat>
+                        <link uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' relation='p-p'/>
+                        <__serverdestination destinations='0.0.0.0:4242:tcp:ANDROID-e612f0e922b56a63'/>
+                        <remarks source='BAO.F.ATAK.ANDROID-e612f0e922b56a63' to='ANDROID-b5c2b8340a0a2cd5' time='2024-02-07T19:04:06.683Z'>at breach</remarks>
+                    </detail>
+                    </event>
+                     */
+            String message = null;
+            String to = null;
+            try {
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG) {
+                        Log.d(TAG, xpp.getName());
+                        if (xpp.getName().equalsIgnoreCase("remarks")) {
+                            if (xpp.next() == XmlPullParser.TEXT)
+                                message = xpp.getText();
+                        } else if (xpp.getName().equalsIgnoreCase("__chat")) {
+                            int attributeCount = xpp.getAttributeCount();
+                            Log.d(TAG, "__chat has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
+                                if (xpp.getAttributeName(i).equalsIgnoreCase("senderCallsign"))
+                                    callsign = xpp.getAttributeValue(i);
+                                if (xpp.getAttributeName(i).equalsIgnoreCase("id"))
+                                    to = xpp.getAttributeValue(i);
+                            }
+                        } else if (xpp.getName().equalsIgnoreCase("link")) {
+                            int attributeCount = xpp.getAttributeCount();
+                            Log.d(TAG, "link has " + +attributeCount);
+                            for (int i = 0; i < attributeCount; i++) {
+                                if (xpp.getAttributeName(i).equalsIgnoreCase("uid"))
+                                    deviceCallsign = xpp.getAttributeValue(i);
+                            }
+                        }
+                    }
+                    eventType = xpp.next();
+                }
+
+            } catch (XmlPullParserException | IOException e) {
+                e.printStackTrace();
+            }
+
+            ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
+            contact.setCallsign(callsign);
+            contact.setDeviceCallsign(deviceCallsign);
+
+            ATAKProtos.GeoChat.Builder geochat = ATAKProtos.GeoChat.newBuilder();
+            geochat.setMessage(message);
+            geochat.setTo(to);
+
+            ATAKProtos.TAKPacket.Builder tak_packet = ATAKProtos.TAKPacket.newBuilder();
+            tak_packet.setContact(contact);
+            tak_packet.setChat(geochat);
+
+            Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+            Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
             dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
