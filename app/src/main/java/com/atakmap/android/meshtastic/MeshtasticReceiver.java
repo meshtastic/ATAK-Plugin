@@ -3,13 +3,8 @@ package com.atakmap.android.meshtastic;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Parcel;
-import android.os.RemoteException;
-import android.util.Xml;
 
-import com.atakmap.android.chat.GeoChatService;
-import com.atakmap.android.contact.Contacts;
-import com.atakmap.android.contact.IndividualContact;
+import android.os.RemoteException;
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
@@ -166,9 +161,17 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             }
         } else if (dataType == 72) {
             Log.d(TAG, "Got TAK_PACKET");
+            Log.d(TAG, "Payload: " + payload);
+            String t = "";
+            for (int i=0; i<payload.getBytes().length; i++) {
+                // convert bytes to ascii
+                t += (char) payload.getBytes()[i];
+            }
+            Log.d(TAG, "Payload: " + t);
             try {
-
                 ATAKProtos.TAKPacket tp = ATAKProtos.TAKPacket.parseFrom(payload.getBytes());
+                tp.getIsCompressed();
+                Log.d(TAG, "TAK_PACKET: " + tp.toString());
                 if (tp.hasPli()) {
                     Log.d(TAG, "TAK_PACKET PLI");
                     ATAKProtos.Contact contact = tp.getContact();
@@ -185,6 +188,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     Log.d(TAG, String.format("GPS: %f %f %f", alt, lat, lng));
 
                     String callsign = contact.getCallsign();
+                    String deviceCallsign = contact.getDeviceCallsign();
 
                     CotDetail cotDetail = new CotDetail("detail");
 
@@ -197,8 +201,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(contactDetail);
 
                     CotDetail groupDetail = new CotDetail("__group");
-                    groupDetail.setAttribute("role", ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());
-                    groupDetail.setAttribute("name", ATAKProtos.Team.forNumber(group.getTeamValue()).name());
+                    groupDetail.setAttribute("role", "Team Member");//ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());
+                    groupDetail.setAttribute("name", "Cyan");//ATAKProtos.Team.forNumber(group.getTeamValue()).name());
                     cotDetail.addChild(groupDetail);
 
                     CotDetail statusDetail = new CotDetail("status");
@@ -212,7 +216,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotEvent cotEvent = new CotEvent();
                     cotEvent.setDetail(cotDetail);
-                    cotEvent.setUID(String.valueOf(UUID.nameUUIDFromBytes(callsign.getBytes())));
+                    cotEvent.setUID(deviceCallsign);
 
                     CoordinatedTime time = new CoordinatedTime();
                     cotEvent.setTime(time);
@@ -247,14 +251,14 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 </detail>
             </event>
              */
-                } else if (tp.hasChat()) {
-                    Log.d(TAG, "TAK_PACKET GEOCHAT");
+                } else if (tp.hasChat() && tp.getChat().getTo().equals("All Chat Rooms")) {
+                    Log.d(TAG, "TAK_PACKET GEOCHAT - All Chat Rooms");
 
                     ATAKProtos.Contact contact = tp.getContact();
                     ATAKProtos.GeoChat geoChat = tp.getChat();
 
                     String callsign = contact.getCallsign();
-                    String value = String.valueOf(UUID.nameUUIDFromBytes(callsign.getBytes()));
+                    String deviceCallsign = contact.getDeviceCallsign();
                     String msgId = String.valueOf(UUID.randomUUID());
 
                     CotDetail cotDetail = new CotDetail("detail");
@@ -271,13 +275,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(chatDetail);
 
                     CotDetail chatgrp = new CotDetail("chatgrp");
-                    chatgrp.setAttribute("uid0", value);
+                    chatgrp.setAttribute("uid0", deviceCallsign);
                     chatgrp.setAttribute("uid1", "All Chat Rooms");
                     chatgrp.setAttribute("id", "All Chat Rooms");
                     chatDetail.addChild(chatgrp);
 
                     CotDetail linkDetail = new CotDetail("link");
-                    linkDetail.setAttribute("uid", value);
+                    linkDetail.setAttribute("uid", deviceCallsign);
                     linkDetail.setAttribute("type", "a-f-G-U-C");
                     linkDetail.setAttribute("relation", "p-p");
                     cotDetail.addChild(linkDetail);
@@ -287,7 +291,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(serverDestinationDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
-                    remarksDetail.setAttribute("source", String.format("BAO.F.ATAK.%s", value));
+                    remarksDetail.setAttribute("source", String.format("BAO.F.ATAK.%s", deviceCallsign));
                     remarksDetail.setAttribute("to", "All Chat Rooms");
                     remarksDetail.setAttribute("time", time.toString());
                     remarksDetail.setInnerText(geoChat.getMessage());
@@ -295,7 +299,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotEvent cotEvent = new CotEvent();
                     cotEvent.setDetail(cotDetail);
-                    cotEvent.setUID("GeoChat." + value + ".All Chat Rooms." + msgId);
+                    cotEvent.setUID("GeoChat." + deviceCallsign + ".All Chat Rooms." + msgId);
                     cotEvent.setTime(time);
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));
@@ -311,6 +315,85 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     else
                         Log.e(TAG, "cotEvent was not valid");
 
+                } else if (tp.hasChat() && tp.getChat().getTo().equals(MapView.getMapView().getSelfMarker().getUID())) {
+                    /*
+                    <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+                    <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.ANDROID-b5c2b8340a0a2cd5.23c1f487-7111-4995-89f5-7709a9c99518' type='b-t-f' time='2024-02-07T19:04:06.683Z' start='2024-02-07T19:04:06.683Z' stale='2024-02-08T19:04:06.683Z' how='h-g-i-g-o'>
+                    <point lat='40.2392345' lon='-19.7690137' hae='9999999.0' ce='9999999.0' le='9999999.0' />
+                    <detail>
+                        <__chat parent='RootContactGroup' groupOwner='false' messageId='23c1f487-7111-4995-89f5-7709a9c99518' chatroom='HUSKER lol' id='ANDROID-b5c2b8340a0a2cd5' senderCallsign='FALKE lol'>
+                            <chatgrp uid0='ANDROID-e612f0e922b56a63' uid1='ANDROID-b5c2b8340a0a2cd5' id='ANDROID-b5c2b8340a0a2cd5'/>
+                        </__chat>
+                        <link uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' relation='p-p'/>
+                        <__serverdestination destinations='0.0.0.0:4242:tcp:ANDROID-e612f0e922b56a63'/>
+                        <remarks source='BAO.F.ATAK.ANDROID-e612f0e922b56a63' to='ANDROID-b5c2b8340a0a2cd5' time='2024-02-07T19:04:06.683Z'>at breach</remarks>
+                    </detail>
+                    </event>
+                     */
+
+                    Log.d(TAG, "TAK_PACKET GEOCHAT - DM");
+
+                    ATAKProtos.Contact contact = tp.getContact();
+                    ATAKProtos.GeoChat geoChat = tp.getChat();
+
+                    String callsign = contact.getCallsign();
+                    String deviceCallsign = contact.getDeviceCallsign();
+                    String msgId = String.valueOf(UUID.randomUUID());
+                    String to = geoChat.getTo();
+
+                    CotDetail cotDetail = new CotDetail("detail");
+
+                    CoordinatedTime time = new CoordinatedTime();
+
+                    CotDetail chatDetail = new CotDetail("__chat");
+                    chatDetail.setAttribute("parent", "RootContactGroup");
+                    chatDetail.setAttribute("groupOwner", "false");
+                    chatDetail.setAttribute("messageId", msgId);
+                    chatDetail.setAttribute("chatroom", MapView.getMapView().getDeviceCallsign());
+                    chatDetail.setAttribute("id", MapView.getMapView().getSelfMarker().getUID());
+                    chatDetail.setAttribute("senderCallsign", callsign);
+                    cotDetail.addChild(chatDetail);
+
+                    CotDetail chatgrp = new CotDetail("chatgrp");
+                    chatgrp.setAttribute("uid0", deviceCallsign);
+                    chatgrp.setAttribute("uid1", MapView.getMapView().getSelfMarker().getUID());
+                    chatgrp.setAttribute("id", MapView.getMapView().getSelfMarker().getUID());
+                    chatDetail.addChild(chatgrp);
+
+                    CotDetail linkDetail = new CotDetail("link");
+                    linkDetail.setAttribute("uid", deviceCallsign);
+                    linkDetail.setAttribute("type", "a-f-G-U-C");
+                    linkDetail.setAttribute("relation", "p-p");
+                    cotDetail.addChild(linkDetail);
+
+                    CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
+                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    cotDetail.addChild(serverDestinationDetail);
+
+                    CotDetail remarksDetail = new CotDetail("remarks");
+                    remarksDetail.setAttribute("source", String.format("BAO.F.ATAK.%s", deviceCallsign));
+                    remarksDetail.setAttribute("to", to);
+                    remarksDetail.setAttribute("time", time.toString());
+                    remarksDetail.setInnerText(geoChat.getMessage());
+                    cotDetail.addChild(remarksDetail);
+
+                    CotEvent cotEvent = new CotEvent();
+                    cotEvent.setDetail(cotDetail);
+                    cotEvent.setUID("GeoChat." + deviceCallsign + MapView.getMapView().getSelfMarker().getUID() + msgId);
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
+                    cotEvent.setType("b-t-f");
+                    cotEvent.setHow("h-g-i-g-o");
+
+                    CotPoint cotPoint = new CotPoint(0, 0, CotPoint.UNKNOWN,
+                            CotPoint.UNKNOWN, CotPoint.UNKNOWN);
+                    cotEvent.setPoint(cotPoint);
+
+                    if (cotEvent.isValid())
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    else
+                        Log.e(TAG, "cotEvent was not valid");
                 }
 
             } catch (InvalidProtocolBufferException e) {
