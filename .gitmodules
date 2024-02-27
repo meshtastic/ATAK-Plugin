@@ -1,0 +1,4 @@
+[submodule "app/src/main/protobufs"]
+	path = app/src/main/protobufs
+	url = https://github.com/meshtastic/protobufs.git
+	branch = atak-plugin
