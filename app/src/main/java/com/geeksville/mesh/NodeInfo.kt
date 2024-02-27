@@ -102,6 +102,7 @@ data class NodeInfo(
     var rssi: Int = Int.MAX_VALUE,
     var lastHeard: Int = 0, // the last time we've seen this node in secs since 1970
     var deviceMetrics: DeviceMetrics? = null,
+    var channel: Int = 0,
     var environmentMetrics: EnvironmentMetrics? = null,
 ) : Parcelable {
 
