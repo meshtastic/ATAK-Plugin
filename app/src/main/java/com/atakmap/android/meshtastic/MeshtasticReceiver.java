@@ -201,8 +201,21 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(contactDetail);
 
                     CotDetail groupDetail = new CotDetail("__group");
-                    groupDetail.setAttribute("role", "Team Member");//ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());
-                    groupDetail.setAttribute("name", "Cyan");//ATAKProtos.Team.forNumber(group.getTeamValue()).name());
+
+                    String role = ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());;
+                    if (role.equals("TeamMember"))
+                        role = "Team Member";
+                    else if (role.eqauls("TeamLead"))
+                        role = "Team Lead";
+                    if (role.equals("ForwardObserver"))
+                        role = "Forward Observer";
+                    groupDetail.setAttribute("role", role);
+                    String team = ATAKProtos.Team.forNumber(group.getTeamValue()).name();
+                    if (team.equals("DarkBlue"))
+                        team = "Dark Blue";
+                    else if (team.equals("DarkGreen"))
+                        team = "Dark Green";
+                    groupDetail.setAttribute("name", team);
                     cotDetail.addChild(groupDetail);
 
                     CotDetail statusDetail = new CotDetail("status");
