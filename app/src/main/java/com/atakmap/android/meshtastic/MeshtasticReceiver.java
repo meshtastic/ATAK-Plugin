@@ -73,7 +73,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             thread.setName("MeshtasticReceiver.Worker");
             thread.start();
         }
-        else if (action.equals("com.geeksville.mesh.RECEIVED.72")) {
+        else if (action.equals(MeshtasticMapComponent.ACTION_RECEIVED_ATAK_PLUGIN)) {
             Thread thread = new Thread(() -> receive(intent));
             thread.setName("MeshtasticReceiver.Worker");
             thread.start();
@@ -170,7 +170,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             Log.d(TAG, "Payload: " + t);
             try {
                 ATAKProtos.TAKPacket tp = ATAKProtos.TAKPacket.parseFrom(payload.getBytes());
-                tp.getIsCompressed();
                 Log.d(TAG, "TAK_PACKET: " + tp.toString());
                 if (tp.hasPli()) {
                     Log.d(TAG, "TAK_PACKET PLI");
@@ -202,14 +201,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail groupDetail = new CotDetail("__group");
 
-                    String role = ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name());;
+                    String role = ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name();
                     if (role.equals("TeamMember"))
                         role = "Team Member";
-                    else if (role.eqauls("TeamLead"))
+                    else if (role.equals("TeamLead"))
                         role = "Team Lead";
-                    if (role.equals("ForwardObserver"))
+                    else if (role.equals("ForwardObserver"))
                         role = "Forward Observer";
                     groupDetail.setAttribute("role", role);
+
                     String team = ATAKProtos.Team.forNumber(group.getTeamValue()).name();
                     if (team.equals("DarkBlue"))
                         team = "Dark Blue";
