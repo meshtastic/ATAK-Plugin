@@ -466,7 +466,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         intentFilter.addAction(ACTION_RECEIVED_POSITION_APP);
         intentFilter.addAction(ACTION_MESSAGE_STATUS);
 
-        view.getContext().registerReceiver(mr, intentFilter);
+        view.getContext().registerReceiver(mr, intentFilter, Context.RECEIVER_EXPORTED);
 
         mServiceIntent = new Intent();
         mServiceIntent.setClassName(PACKAGE_NAME, CLASS_NAME);
