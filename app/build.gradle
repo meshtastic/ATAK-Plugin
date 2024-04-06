@@ -9,7 +9,7 @@
 buildscript {
 
 
-    ext.PLUGIN_VERSION = "1.0.6"
+    ext.PLUGIN_VERSION = "1.0.8"
     ext.ATAK_VERSION = "4.10.0"
 
     def takdevVersion = '2.+'
@@ -208,7 +208,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 24
+        minSdkVersion 26
         targetSdkVersion 33
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86"

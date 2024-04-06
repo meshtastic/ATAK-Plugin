@@ -1,9 +1,12 @@
 package com.atakmap.android.meshtastic;
 
+import static java.util.Objects.*;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
+import android.content.SharedPreferences;
 import android.os.RemoteException;
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
@@ -11,6 +14,7 @@ import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
 import com.atakmap.coremap.log.Log;
+import com.atakmap.coremap.maps.coords.GeoPoint;
 import com.atakmap.coremap.maps.time.CoordinatedTime;
 
 import com.geeksville.mesh.ATAKProtos;
@@ -25,14 +29,19 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
 
     private final String TAG = "MeshtasticReceiver";
 
+    private SharedPreferences prefs;
     @Override
     public void onReceive(Context context, Intent intent) {
+
+        prefs = context.getSharedPreferences("com.atakmap.android.meshtastic", Context.MODE_PRIVATE);
+
         String action = intent.getAction();
         Log.d(TAG, "ACTION: " + action);
         if (action.equals(MeshtasticMapComponent.ACTION_MESH_CONNECTED)) {
@@ -81,6 +90,35 @@ public class MeshtasticReceiver extends BroadcastReceiver {
         else if (action.equals(MeshtasticMapComponent.ACTION_NODE_CHANGE)) {
             NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
             Log.d(TAG, ni.toString());
+
+            if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
+
+                CotEvent cotEvent = new CotEvent();
+                CoordinatedTime time = new CoordinatedTime();
+                cotEvent.setTime(time);
+                cotEvent.setStart(time);
+                cotEvent.setStale(time.addMinutes(10));
+                cotEvent.setUID(ni.getUser().getLongName());
+                CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
+                cotEvent.setPoint(gp);
+                cotEvent.setHow("m-g");
+                cotEvent.setType("a-f-G-E-S");
+
+                CotDetail cotDetail = new CotDetail("detail");
+                cotEvent.setDetail(cotDetail);
+                CotDetail remarksDetail = new CotDetail("remarks");
+                remarksDetail.setInnerText(ni.toString());
+                cotDetail.addChild(remarksDetail);
+
+                if (cotEvent.isValid()) {
+                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                        CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                    }
+                }
+                else
+                    Log.e(TAG, "cotEvent was not valid");
+            }
         }
     }
 
@@ -151,8 +189,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
                     if (cotEvent.isValid()) {
-                        Log.d(TAG, "CoT Received");
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+
+                        }
                     }
                 } catch (Throwable e) {
                     e.printStackTrace();
@@ -238,14 +279,18 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     cotEvent.setType("a-f-G-U-C");
 
-                    cotEvent.setHow("m-e");
+                    cotEvent.setHow("m-g");
 
                     CotPoint cotPoint = new CotPoint(lat, lng, CotPoint.UNKNOWN,
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid())
+                    if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    }
                     else
                         Log.e(TAG, "cotEvent was not valid");
 
@@ -323,8 +368,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid())
+                    if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    }
                     else
                         Log.e(TAG, "cotEvent was not valid");
 
@@ -403,8 +452,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid())
+                    if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    }
                     else
                         Log.e(TAG, "cotEvent was not valid");
                 }

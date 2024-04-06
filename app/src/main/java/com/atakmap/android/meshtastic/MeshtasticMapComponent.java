@@ -16,6 +16,7 @@ import android.widget.Toast;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.AbstractMapComponent;
 import com.atakmap.android.meshtastic.plugin.R;
+import com.atakmap.app.preferences.ToolsPreferenceFragment;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotDetail;
@@ -466,7 +467,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         intentFilter.addAction(ACTION_RECEIVED_POSITION_APP);
         intentFilter.addAction(ACTION_MESSAGE_STATUS);
 
-        view.getContext().registerReceiver(mr, intentFilter);
+        view.getContext().registerReceiver(mr, intentFilter, Context.RECEIVER_EXPORTED);
 
         mServiceIntent = new Intent();
         mServiceIntent.setClassName(PACKAGE_NAME, CLASS_NAME);
@@ -493,16 +494,17 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         }
 
         mw = new MeshtasticWidget(context, view);
-/*
-        // Grab all the logcat output for ATAK to help debug
-        try {
-            String filePath = Environment.getExternalStorageDirectory() + "/atak/logcat.txt";
-            Runtime.getRuntime().exec(new String[]{"logcat", "-f", filePath});
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-*/
+
+        ToolsPreferenceFragment.register(
+                new ToolsPreferenceFragment.ToolPreference(
+                        pluginContext.getString(R.string.preferences_title),
+                        pluginContext.getString(R.string.preferences_summary),
+                        pluginContext.getString(R.string.meshtastic_preferences),
+                        pluginContext.getResources().getDrawable(R.drawable.ic_launcher),
+                        new PluginPreferencesFragment(
+                                pluginContext)));
     }
+
 
     public static boolean reconnect() throws RemoteException {
         boolean ret = getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);

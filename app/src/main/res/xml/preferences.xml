@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <PreferenceCategory android:title="@string/preferences_title" />
-    <com.atakmap.android.gui.PanEditTextPreference
-        android:key="plugin_meshtastic_distance"
-        android:title="@string/preferences_distanceTitle"
-        android:summary="@string/preferences_summary"
-        android:dialogTitle="@string/preferences_dialogTitle"
-        android:defaultValue="1000"/>
+    <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_server"
+        android:title="Enable relay to server"
+        android:summary="If enabled, messages will be relayed to the server"
+        android:dialogTitle="Enable relay to server"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanSwitchPreference
+    android:key="plugin_meshtastic_tracker"
+        android:title="Show all Meshtastic devices"
+        android:summary="If enabled, all Meshtastic devices will be shown on the map"
+        android:dialogTitle="Show all Meshtastic devices"
+        android:defaultValue="false"/>
 
 </PreferenceScreen>
