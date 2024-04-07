@@ -8,6 +8,8 @@ import android.content.Intent;
 
 import android.content.SharedPreferences;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
+
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
@@ -40,7 +42,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
 
-        prefs = context.getSharedPreferences("com.atakmap.android.meshtastic", Context.MODE_PRIVATE);
+        prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
 
         String action = intent.getAction();
         Log.d(TAG, "ACTION: " + action);
@@ -92,7 +94,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             Log.d(TAG, ni.toString());
 
             if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
-
+                Log.d(TAG, "Sending CoT for NodeInfo");
                 CotEvent cotEvent = new CotEvent();
                 CoordinatedTime time = new CoordinatedTime();
                 cotEvent.setTime(time);
@@ -173,10 +175,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
                     if (cotEvent != null && cotEvent.isValid()) {
                         Log.d(TAG, "Chunked CoT Received");
-
-                        cotEvent.setStale(new CoordinatedTime().addDays(3));
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        } else {
+                            Log.d(TAG, "Not sending to server");
+                        }
                     } else {
                         Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
                     }
@@ -193,6 +197,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
 
+                        } else {
+                            Log.d(TAG, "Not sending to server");
                         }
                     }
                 } catch (Throwable e) {
@@ -289,6 +295,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        } else {
+                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
@@ -372,6 +380,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        } else {
+                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
@@ -456,6 +466,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        } else {
+                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
