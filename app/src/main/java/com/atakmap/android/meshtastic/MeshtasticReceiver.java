@@ -45,82 +45,89 @@ public class MeshtasticReceiver extends BroadcastReceiver {
         prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
 
         String action = intent.getAction();
+        if (action == null) return;
         Log.d(TAG, "ACTION: " + action);
-        if (action.equals(MeshtasticMapComponent.ACTION_MESH_CONNECTED)) {
-            String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_CONNECTED);
-            boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_CONNECTED);
-            Log.d(TAG, "Received ACTION_MESH_CONNECTED: " + extraConnected);
-            if (connected) {
-                try {
-                    boolean ret = MeshtasticMapComponent.reconnect();
-                    if (ret) {
-                        MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
-                        MeshtasticMapComponent.mw.setIcon("green");
+        switch (action) {
+            case MeshtasticMapComponent.ACTION_MESH_CONNECTED: {
+                String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_CONNECTED);
+                boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_CONNECTED);
+                Log.d(TAG, "Received ACTION_MESH_CONNECTED: " + extraConnected);
+                if (connected) {
+                    try {
+                        boolean ret = MeshtasticMapComponent.reconnect();
+                        if (ret) {
+                            MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
+                            MeshtasticMapComponent.mw.setIcon("green");
+                        }
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
                     }
-                } catch (RemoteException e) {
-                    e.printStackTrace();
+                } else {
+                    MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                    MeshtasticMapComponent.mw.setIcon("red");
                 }
-            } else {
-                MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
-                MeshtasticMapComponent.mw.setIcon("red");
+                break;
             }
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_MESH_DISCONNECTED)) {
-            String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_DISCONNECTED);
-            boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_DISCONNECTED);
-            Log.d(TAG, "Received ACTION_MESH_DISCONNECTED: " + extraConnected);
-            if (connected) {
-                MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
-                MeshtasticMapComponent.mw.setIcon("red");
-            }
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_MESSAGE_STATUS)) {
-            int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);
-            MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);
-            Log.d(TAG, "Message Status ID: " + id + " Status: " + status.toString());
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER)) {
-            Thread thread = new Thread(() -> receive(intent));
-            thread.setName("MeshtasticReceiver.Worker");
-            thread.start();
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_RECEIVED_ATAK_PLUGIN)) {
-            Thread thread = new Thread(() -> receive(intent));
-            thread.setName("MeshtasticReceiver.Worker");
-            thread.start();
-        }
-        else if (action.equals(MeshtasticMapComponent.ACTION_NODE_CHANGE)) {
-            NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
-            Log.d(TAG, ni.toString());
-
-            if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
-                Log.d(TAG, "Sending CoT for NodeInfo");
-                CotEvent cotEvent = new CotEvent();
-                CoordinatedTime time = new CoordinatedTime();
-                cotEvent.setTime(time);
-                cotEvent.setStart(time);
-                cotEvent.setStale(time.addMinutes(10));
-                cotEvent.setUID(ni.getUser().getLongName());
-                CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
-                cotEvent.setPoint(gp);
-                cotEvent.setHow("m-g");
-                cotEvent.setType("a-f-G-E-S");
-
-                CotDetail cotDetail = new CotDetail("detail");
-                cotEvent.setDetail(cotDetail);
-                CotDetail remarksDetail = new CotDetail("remarks");
-                remarksDetail.setInnerText(ni.toString());
-                cotDetail.addChild(remarksDetail);
-
-                if (cotEvent.isValid()) {
-                    CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                    if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                        CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                    }
+            case MeshtasticMapComponent.ACTION_MESH_DISCONNECTED: {
+                String extraConnected = intent.getStringExtra(MeshtasticMapComponent.EXTRA_DISCONNECTED);
+                if (extraConnected == null) {
+                    Log.d(TAG, "Received ACTION_MESH_DISCONNECTED: null");
+                    return;
                 }
-                else
-                    Log.e(TAG, "cotEvent was not valid");
+                boolean connected = extraConnected.equals(MeshtasticMapComponent.STATE_DISCONNECTED);
+                Log.d(TAG, "Received ACTION_MESH_DISCONNECTED: " + extraConnected);
+                if (connected) {
+                    MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.DISCONNECTED;
+                    MeshtasticMapComponent.mw.setIcon("red");
+                }
+                break;
             }
+            case MeshtasticMapComponent.ACTION_MESSAGE_STATUS:
+                int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);
+                MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);
+                Log.d(TAG, "Message Status ID: " + id + " Status: " + status);
+                break;
+            case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER:
+            case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_PLUGIN: {
+                Thread thread = new Thread(() -> receive(intent));
+                thread.setName("MeshtasticReceiver.Worker");
+                thread.start();
+                break;
+            }
+            case MeshtasticMapComponent.ACTION_NODE_CHANGE:
+                NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
+                if (ni == null) return;
+                Log.d(TAG, ni.toString());
+                if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
+                    Log.d(TAG, "Sending CoT for NodeInfo");
+                    CotEvent cotEvent = new CotEvent();
+                    CoordinatedTime time = new CoordinatedTime();
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
+                    if (ni.getUser() == null) return;
+                    cotEvent.setUID(ni.getUser().getLongName());
+                    if (ni.getPosition() == null) return;
+                    CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
+                    cotEvent.setPoint(gp);
+                    cotEvent.setHow("m-g");
+                    cotEvent.setType("a-f-G-E-S");
+
+                    CotDetail cotDetail = new CotDetail("detail");
+                    cotEvent.setDetail(cotDetail);
+                    CotDetail remarksDetail = new CotDetail("remarks");
+                    remarksDetail.setInnerText(ni.toString());
+                    cotDetail.addChild(remarksDetail);
+
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
+                }
+                break;
         }
     }
 
@@ -129,6 +136,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     int cotSize = 0;
     protected void receive(Intent intent) {
         DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
+        if (payload == null) return;
         int dataType = payload.getDataType();
         Log.v(TAG, "handleReceive(), dataType: " + dataType);
 
@@ -178,8 +186,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        } else {
-                            Log.d(TAG, "Not sending to server");
                         }
                     } else {
                         Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
@@ -192,13 +198,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 try {
 
                     CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
-                    if (cotEvent.isValid()) {
+                    if ( cotEvent != null && cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-
-                        } else {
-                            Log.d(TAG, "Not sending to server");
                         }
                     }
                 } catch (Throwable e) {
@@ -210,7 +213,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             Log.d(TAG, "Got TAK_PACKET");
             Log.d(TAG, "Payload: " + payload);
             String t = "";
-            for (int i=0; i<payload.getBytes().length; i++) {
+            for (int i = 0; i< payload.getBytes().length; i++) {
                 // convert bytes to ascii
                 t += (char) payload.getBytes()[i];
             }
@@ -249,12 +252,17 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotDetail groupDetail = new CotDetail("__group");
 
                     String role = ATAKProtos.MemberRole.forNumber(group.getRoleValue()).name();
-                    if (role.equals("TeamMember"))
-                        role = "Team Member";
-                    else if (role.equals("TeamLead"))
-                        role = "Team Lead";
-                    else if (role.equals("ForwardObserver"))
-                        role = "Forward Observer";
+                    switch (role) {
+                        case "TeamMember":
+                            role = "Team Member";
+                            break;
+                        case "TeamLead":
+                            role = "Team Lead";
+                            break;
+                        case "ForwardObserver":
+                            role = "Forward Observer";
+                            break;
+                    }
                     groupDetail.setAttribute("role", role);
 
                     String team = ATAKProtos.Team.forNumber(group.getTeamValue()).name();
@@ -295,8 +303,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        } else {
-                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
@@ -380,8 +386,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        } else {
-                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
@@ -466,8 +470,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        } else {
-                            Log.d(TAG, "Not sending to server");
                         }
                     }
                     else
