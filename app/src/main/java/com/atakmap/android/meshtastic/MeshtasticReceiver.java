@@ -108,6 +108,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     if (ni.getUser() == null) return;
                     cotEvent.setUID(ni.getUser().getLongName());
                     if (ni.getPosition() == null) return;
+                    if (ni.getPosition().getLatitude() == 0 || ni.getPosition().getLongitude() == 0) return;
                     CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(gp);
                     cotEvent.setHow("m-g");
@@ -118,6 +119,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotDetail remarksDetail = new CotDetail("remarks");
                     remarksDetail.setInnerText(ni.toString());
                     cotDetail.addChild(remarksDetail);
+                    CotDetail contactDetail = new CotDetail("contact");
+                    contactDetail.setAttribute("callsign", ni.getUser().getLongName());
+                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
+                    cotDetail.addChild(contactDetail);
 
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
