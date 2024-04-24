@@ -473,9 +473,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        }
                     }
                     else
                         Log.e(TAG, "cotEvent was not valid");
