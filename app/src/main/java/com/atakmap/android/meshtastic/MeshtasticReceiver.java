@@ -11,6 +11,7 @@ import android.os.RemoteException;
 import android.preference.PreferenceManager;
 
 import com.atakmap.android.cot.CotMapComponent;
+import com.atakmap.android.editableShapes.EditablePolyline;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
@@ -98,6 +99,70 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
                 if (ni == null) return;
                 Log.d(TAG, ni.toString());
+                if (ni.getUser() == null) return;
+                if (ni.getPosition() == null) return;
+                if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
+
+                String longName = ni.getUser().getLongName();
+                CotDetail groupDetail = new CotDetail("__group");
+
+                try {
+                    String teamColor = longName.split("((?= -[0-9]?$))")[1];
+                    Log.d(TAG, "Team Color: " + teamColor);
+                    groupDetail.setAttribute("role", "Team Member");
+                    switch (teamColor) {
+                        case " -0":
+                        case " -1":
+                            groupDetail.setAttribute("name", "White");
+                            break;
+                        case " -2":
+                            groupDetail.setAttribute("name", "Yellow");
+                            break;
+                        case " -3":
+                            groupDetail.setAttribute("name", "Orange");
+                            break;
+                        case " -4":
+                            groupDetail.setAttribute("name", "Magenta");
+                            break;
+                        case " -5":
+                            groupDetail.setAttribute("name", "Red");
+                            break;
+                        case " -6":
+                            groupDetail.setAttribute("name", "Maroon");
+                            break;
+                        case " -7":
+                            groupDetail.setAttribute("name", "Purple");
+                            break;
+                        case " -8":
+                            groupDetail.setAttribute("name", "Dark Blue");
+                            break;
+                        case " -9":
+                            groupDetail.setAttribute("name", "Blue");
+                            break;
+                        case " -10":
+                            groupDetail.setAttribute("name", "Cyan");
+                            break;
+                        case " -11":
+                            groupDetail.setAttribute("name", "Teal");
+                            break;
+                        case " -12":
+                            groupDetail.setAttribute("name", "Green");
+                            break;
+                        case " -13":
+                            groupDetail.setAttribute("name", "Dark Green");
+                            break;
+                        case " -14":
+                            groupDetail.setAttribute("name", "Brown");
+                            break;
+                        default:
+                            groupDetail.setAttribute("name", "Black");
+                            break;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return;
+                }
+
                 if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
                     Log.d(TAG, "Sending CoT for NodeInfo");
                     CotEvent cotEvent = new CotEvent();
@@ -105,10 +170,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotEvent.setTime(time);
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));
-                    if (ni.getUser() == null) return;
-                    cotEvent.setUID(ni.getUser().getLongName());
-                    if (ni.getPosition() == null) return;
-                    if (ni.getPosition().getLatitude() == 0 || ni.getPosition().getLongitude() == 0) return;
+
+                    cotEvent.setUID(longName.replaceAll(" -[0-9]*$",""));
                     CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(gp);
                     cotEvent.setHow("m-g");
@@ -116,6 +179,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail cotDetail = new CotDetail("detail");
                     cotEvent.setDetail(cotDetail);
+                    cotDetail.addChild(groupDetail);
                     CotDetail remarksDetail = new CotDetail("remarks");
                     remarksDetail.setInnerText(ni.toString());
                     cotDetail.addChild(remarksDetail);
