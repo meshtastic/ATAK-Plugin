@@ -22,12 +22,15 @@ import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.comms.CommsMapComponent;
 
+import com.geeksville.mesh.MeshProtos;
 import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.ATAKProtos;
+import com.geeksville.mesh.NodeInfo;
 import com.geeksville.mesh.Portnums;
 import com.geeksville.mesh.DataPacket;
 import com.geeksville.mesh.IMeshService;
 
+import com.google.protobuf.ByteString;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinker;
 import com.paulmandal.atak.libcotshrink.pub.api.CotShrinkerFactory;
 
@@ -37,10 +40,13 @@ import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+
+import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType;
 
 public class MeshtasticMapComponent extends AbstractMapComponent implements CommsMapComponent.PreSendProcessor {
 
@@ -62,7 +68,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
     public static ServiceConnectionState mConnectionState = ServiceConnectionState.DISCONNECTED;
 
-    private final int  ATAK_FORWARDER = 257;
 
     /**
      * Service Intent
@@ -79,6 +84,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static final String ACTION_RECEIVED_ATAK_PLUGIN = "com.geeksville.mesh.RECEIVED.ATAK_PLUGIN";
     public static final String ACTION_RECEIVED_NODEINFO_APP = "com.geeksville.mesh.RECEIVED.NODEINFO_APP";
     public static final String ACTION_RECEIVED_POSITION_APP = "com.geeksville.mesh.RECEIVED.POSITION_APP";
+    public static final String ACTION_TEXT_MESSAGE_APP = "com.geeksville.mesh.RECEIVED.TEXT_MESSAGE_APP";
     public static final String ACTION_NODE_CHANGE = "com.geeksville.mesh.NODE_CHANGE";
     public static final String ACTION_MESSAGE_STATUS = "com.geeksville.mesh.MESSAGE_STATUS";
 
@@ -88,12 +94,10 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static final String EXTRA_CONNECTED = "com.geeksville.mesh.Connected";
     public static final String EXTRA_DISCONNECTED = "com.geeksville.mesh.disconnected";
     public static final String EXTRA_PERMANENT = "com.geeksville.mesh.Permanent";
-
     public static final String EXTRA_PAYLOAD = "com.geeksville.mesh.Payload";
     public static final String EXTRA_NODEINFO = "com.geeksville.mesh.NodeInfo";
     public static final String EXTRA_PACKET_ID = "com.geeksville.mesh.PacketId";
     public static final String EXTRA_STATUS = "com.geeksville.mesh.Status";
-
     public static final String STATE_CONNECTED = "CONNECTED";
     public static final String STATE_DISCONNECTED = "DISCONNECTED";
     public static final String STATE_DEVICE_SLEEP = "DEVICE_SLEEP";
@@ -117,12 +121,28 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         return result;
     }
 
+    public static List<NodeInfo> getNodes() {
+        try {
+            return mMeshService.getNodes();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    public static String getMyNodeID() {
+        try {
+            return mMeshService.getMyId();
+        } catch (RemoteException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
 
         Log.d(TAG, "callsign: " + getMapView().getDeviceCallsign());
         Log.d(TAG, "device callsign: " + getMapView().getSelfMarker().getUID());
-
 
         if (mConnectionState == ServiceConnectionState.DISCONNECTED)
             return;
@@ -247,7 +267,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
             Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
-            dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
@@ -316,7 +336,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
             Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
-            dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
@@ -373,6 +393,8 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                 e.printStackTrace();
             }
 
+            if (to == null) return;
+
             ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
             contact.setCallsign(callsign);
             contact.setDeviceCallsign(deviceCallsign);
@@ -388,7 +410,12 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
             Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
-            dp = new DataPacket("^all", tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            // if "to" starts with !, its probably a meshtastic ID, so don't send it to ^all but the actual ID
+            if (to.startsWith("!")) {
+                dp = new DataPacket(to, MeshProtos.Data.newBuilder().setPayload(ByteString.copyFrom(message.getBytes(StandardCharsets.UTF_8))).build().toByteArray(),Portnums.PortNum.TEXT_MESSAGE_APP_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            } else {
+                dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            }
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
@@ -402,7 +429,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
             if (cotAsBytes.length < 236) {
                 Log.d(TAG, "Small send");
-                dp = new DataPacket("^all", cotAsBytes, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+                dp = new DataPacket(DataPacket.ID_BROADCAST, cotAsBytes, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
                 try {
                     mMeshService.send(dp);
                 } catch (RemoteException e) {
@@ -428,7 +455,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                     e.printStackTrace();
                 }
                 // send out 1 chunk
-                dp = new DataPacket("^all", combined, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+                dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
                 try {
                     mMeshService.send(dp);
                 } catch (RemoteException e) {
@@ -437,7 +464,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             }
 
             // We're done chunking
-            dp = new DataPacket("^all", new byte[]{'E', 'N', 'D'}, ATAK_FORWARDER, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+            dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
@@ -466,6 +493,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         intentFilter.addAction(ACTION_RECEIVED_NODEINFO_APP);
         intentFilter.addAction(ACTION_RECEIVED_POSITION_APP);
         intentFilter.addAction(ACTION_MESSAGE_STATUS);
+        intentFilter.addAction(ACTION_TEXT_MESSAGE_APP);
 
         view.getContext().registerReceiver(mr, intentFilter, Context.RECEIVER_EXPORTED);
 

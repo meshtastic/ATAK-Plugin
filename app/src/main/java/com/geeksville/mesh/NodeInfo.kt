@@ -2,8 +2,13 @@ package com.geeksville.mesh
 
 import android.graphics.Color
 import android.os.Parcelable
-
 import kotlinx.parcelize.Parcelize
+
+/**
+ * Room [Embedded], [Entity] and [PrimaryKey] annotations and imports, as well as any protobuf
+ * reference [MeshProtos], [TelemetryProtos], [ConfigProtos] can be removed when only using the API.
+ * For details check the AIDL interface in [com.geeksville.mesh.IMeshService]
+ */
 
 //
 // model objects that directly map to the corresponding protobufs
@@ -11,25 +16,57 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class MeshUser(
-    val id: String,
-    val longName: String,
-    val shortName: String,
-    val hwModel: String,
-    val isLicensed: Boolean = false,
+        val id: String,
+        val longName: String,
+        val shortName: String,
+        val hwModel: MeshProtos.HardwareModel,
+        val isLicensed: Boolean = false,
 ) : Parcelable {
 
     override fun toString(): String {
-        return "MeshUser(id=${id}, longName=${longName}, shortName=${shortName}, hwModel=hwModel, isLicensed=${isLicensed})"
+        return "MeshUser(id=${id}, longName=${longName}, shortName=${shortName}, hwModel=${hwModelString}, isLicensed=${isLicensed})"
     }
+
+    /** Create our model object from a protobuf.
+     */
+    constructor(p: MeshProtos.User) : this(
+            p.id,
+            p.longName,
+            p.shortName,
+            p.hwModel,
+            p.isLicensed,
+    )
+
+    fun toProto(): MeshProtos.User =
+            MeshProtos.User.newBuilder()
+                    .setId(id)
+                    .setLongName(longName)
+                    .setShortName(shortName)
+                    .setHwModel(hwModel)
+                    .setIsLicensed(isLicensed)
+                    .build()
+
+    /** a string version of the hardware model, converted into pretty lowercase and changing _ to -, and p to dot
+     * or null if unset
+     * */
+    val hwModelString: String?
+        get() =
+            if (hwModel == MeshProtos.HardwareModel.UNSET) null
+            else hwModel.name.replace('_', '-').replace('p', '.').lowercase()
 }
 
 @Parcelize
 data class Position(
-    val latitude: Double,
-    val longitude: Double,
-    val altitude: Int,
-    val time: Int = currentTime() // default to current time in secs (NOT MILLISECONDS!)
+        val latitude: Double,
+        val longitude: Double,
+        val altitude: Int,
+        val time: Int = currentTime(), // default to current time in secs (NOT MILLISECONDS!)
+        val satellitesInView: Int = 0,
+        val groundSpeed: Int = 0,
+        val groundTrack: Int = 0, // "heading"
+        val precisionBits: Int = 0,
 ) : Parcelable {
+
     companion object {
         /// Convert to a double representation of degrees
         fun degD(i: Int) = i * 1e-7
@@ -40,6 +77,17 @@ data class Position(
 
     /** Create our model object from a protobuf.  If time is unspecified in the protobuf, the provided default time will be used.
      */
+    constructor(position: MeshProtos.Position, defaultTime: Int = currentTime()) : this(
+            // We prefer the int version of lat/lon but if not available use the depreciated legacy version
+            degD(position.latitudeI),
+            degD(position.longitudeI),
+            position.altitude,
+            if (position.time != 0) position.time else defaultTime,
+            position.satsInView,
+            position.groundSpeed,
+            position.groundTrack,
+            position.precisionBits
+    )
 
     // If GPS gives a crap position don't crash our app
     fun isValid(): Boolean {
@@ -56,11 +104,11 @@ data class Position(
 
 @Parcelize
 data class DeviceMetrics(
-    val time: Int = currentTime(), // default to current time in secs (NOT MILLISECONDS!)
-    val batteryLevel: Int = 0,
-    val voltage: Float,
-    val channelUtilization: Float,
-    val airUtilTx: Float
+        val time: Int = currentTime(), // default to current time in secs (NOT MILLISECONDS!)
+        val batteryLevel: Int = 0,
+        val voltage: Float,
+        val channelUtilization: Float,
+        val airUtilTx: Float
 ) : Parcelable {
     companion object {
         fun currentTime() = (System.currentTimeMillis() / 1000).toInt()
@@ -68,6 +116,13 @@ data class DeviceMetrics(
 
     /** Create our model object from a protobuf.
      */
+    constructor(p: TelemetryProtos.DeviceMetrics, telemetryTime: Int = currentTime()) : this(
+            telemetryTime,
+            p.batteryLevel,
+            p.voltage,
+            p.channelUtilization,
+            p.airUtilTx
+    )
 
     override fun toString(): String {
         return "DeviceMetrics(time=${time}, batteryLevel=${batteryLevel}, voltage=${voltage}, channelUtilization=${channelUtilization}, airUtilTx=${airUtilTx})"
@@ -76,34 +131,73 @@ data class DeviceMetrics(
 
 @Parcelize
 data class EnvironmentMetrics(
-    val time: Int = currentTime(), // default to current time in secs (NOT MILLISECONDS!)
-    val temperature: Float,
-    val relativeHumidity: Float,
-    val barometricPressure: Float,
-    val gasResistance: Float,
-    val voltage: Float,
-    val current: Float,
+        val time: Int = currentTime(), // default to current time in secs (NOT MILLISECONDS!)
+        val temperature: Float,
+        val relativeHumidity: Float,
+        val barometricPressure: Float,
+        val gasResistance: Float,
+        val voltage: Float,
+        val current: Float,
 ) : Parcelable {
     companion object {
         fun currentTime() = (System.currentTimeMillis() / 1000).toInt()
     }
 
+    /** Create our model object from a protobuf.
+     */
+    constructor(t: TelemetryProtos.EnvironmentMetrics, telemetryTime: Int = currentTime()) : this(
+            telemetryTime,
+            t.temperature,
+            t.relativeHumidity,
+            t.barometricPressure,
+            t.gasResistance,
+            t.voltage,
+            t.current
+    )
+
     override fun toString(): String {
         return "EnvironmentMetrics(time=${time}, temperature=${temperature}, humidity=${relativeHumidity}, pressure=${barometricPressure}), resistance=${gasResistance}, voltage=${voltage}, current=${current}"
     }
+
+    fun getDisplayString(inFahrenheit: Boolean = false): String {
+        val temp = if (temperature != 0f) {
+            if (inFahrenheit) {
+                val fahrenheit = temperature * 1.8F + 32
+                String.format("%.1f°F", fahrenheit)
+            } else {
+                String.format("%.1f°C", temperature)
+            }
+        } else null
+        val humidity = if (relativeHumidity != 0f) String.format("%.0f%%", relativeHumidity) else null
+        val pressure = if (barometricPressure != 0f) String.format("%.1fhPa", barometricPressure) else null
+        val gas = if (gasResistance != 0f) String.format("%.0fMΩ", gasResistance) else null
+        val voltage = if (voltage != 0f) String.format("%.2fV", voltage) else null
+        val current = if (current != 0f) String.format("%.1fmA", current) else null
+
+        return listOfNotNull(
+                temp,
+                humidity,
+                pressure,
+                gas,
+                voltage,
+                current
+        ).joinToString(" ")
+    }
+
 }
 
 @Parcelize
 data class NodeInfo(
-    val num: Int, // This is immutable, and used as a key
-    var user: MeshUser? = null,
-    var position: Position? = null,
-    var snr: Float = Float.MAX_VALUE,
-    var rssi: Int = Int.MAX_VALUE,
-    var lastHeard: Int = 0, // the last time we've seen this node in secs since 1970
-    var deviceMetrics: DeviceMetrics? = null,
-    var channel: Int = 0,
-    var environmentMetrics: EnvironmentMetrics? = null,
+        val num: Int, // This is immutable, and used as a key
+        var user: MeshUser? = null,
+        var position: Position? = null,
+        var snr: Float = Float.MAX_VALUE,
+        var rssi: Int = Int.MAX_VALUE,
+        var lastHeard: Int = 0, // the last time we've seen this node in secs since 1970
+        var deviceMetrics: DeviceMetrics? = null,
+        var channel: Int = 0,
+        var environmentMetrics: EnvironmentMetrics? = null,
+        var hopsAway: Int = 0
 ) : Parcelable {
 
     val colors: Pair<Int, Int>
@@ -112,37 +206,21 @@ data class NodeInfo(
             val g = (num and 0x00FF00) shr 8
             val b = num and 0x0000FF
             val brightness = ((r * 0.299) + (g * 0.587) + (b * 0.114)) / 255
-            return Pair(if (brightness > 0.5) Color.BLACK else Color.WHITE, Color.rgb(r, g, b))
+            return (if (brightness > 0.5) Color.BLACK else Color.WHITE) to Color.rgb(r, g, b)
         }
 
     val batteryLevel get() = deviceMetrics?.batteryLevel
     val voltage get() = deviceMetrics?.voltage
     val batteryStr get() = if (batteryLevel in 1..100) String.format("%d%%", batteryLevel) else ""
 
-    private fun envFormat(f: String, unit: String, env: Float?): String =
-        if (env != null && env != 0f) String.format(f + unit, env) else ""
-
-    val envMetricStr
-        get() = envFormat("%.1f", "°C ", environmentMetrics?.temperature) +
-                envFormat("%.0f", "%% ", environmentMetrics?.relativeHumidity) +
-                envFormat("%.1f", "hPa ", environmentMetrics?.barometricPressure) +
-                envFormat("%.0f", "mΩ ", environmentMetrics?.gasResistance) +
-                envFormat("%.2f", "V ", environmentMetrics?.voltage) +
-                envFormat("%.1f", "mA", environmentMetrics?.current)
-
     /**
      * true if the device was heard from recently
-     *
-     * Note: if a node has never had its time set, it will have a time of zero.  In that
-     * case assume it is online - so that we will start sending GPS updates
      */
     val isOnline: Boolean
         get() {
             val now = System.currentTimeMillis() / 1000
-            // FIXME - use correct timeout from the device settings
-            val timeout =
-                15 * 60 // Don't set this timeout too tight, or otherwise we will stop sending GPS helper positions to our device
-            return (now - lastHeard <= timeout) || lastHeard == 0
+            val timeout = 15 * 60
+            return (now - lastHeard <= timeout)
         }
 
     /// return the position if it is valid, else null

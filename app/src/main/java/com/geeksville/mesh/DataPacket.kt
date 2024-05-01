@@ -4,6 +4,17 @@ import android.os.Parcel
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
+/**
+ * Generic [Parcel.readParcelable] Android 13 compatibility extension.
+ */
+private inline fun <reified T : Parcelable> Parcel.readParcelableCompat(loader: ClassLoader?): T? {
+    return if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+        @Suppress("DEPRECATION")
+        readParcelable(loader)
+    } else {
+        readParcelable(loader, T::class.java)
+    }
+}
 @Parcelize
 enum class MessageStatus : Parcelable {
     UNKNOWN, // Not set for this message
@@ -43,7 +54,7 @@ data class DataPacket(
         parcel.readString(),
         parcel.readLong(),
         parcel.readInt(),
-        parcel.readParcelable(MessageStatus::class.java.classLoader),
+        parcel.readParcelableCompat(MessageStatus::class.java.classLoader),
         parcel.readInt(),
         parcel.readInt(),
     )
@@ -104,7 +115,7 @@ data class DataPacket(
         from = parcel.readString()
         time = parcel.readLong()
         id = parcel.readInt()
-        status = parcel.readParcelable(MessageStatus::class.java.classLoader)
+        status = parcel.readParcelableCompat(MessageStatus::class.java.classLoader)
         hopLimit = parcel.readInt()
         channel = parcel.readInt()
     }

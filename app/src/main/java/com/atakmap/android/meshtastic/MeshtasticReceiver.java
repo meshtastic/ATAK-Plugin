@@ -95,6 +95,150 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 thread.start();
                 break;
             }
+            case MeshtasticMapComponent.ACTION_TEXT_MESSAGE_APP:
+                Log.d(TAG, "Got a meshtastic text message");
+                DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
+                if (payload == null) return;
+                Log.d(TAG, "Message: " + new String(payload.getBytes()));
+                Log.d(TAG, payload.toString());
+/*
+                String longName = null;
+                List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
+                if (nodes == null) {Log.d(TAG, "nodes was null"); return;}
+                for (NodeInfo ni : nodes) {
+                    if (ni == null) continue;
+                    Log.d(TAG, ni.toString());
+                    if (ni.getUser() == null) continue;
+                    if (ni.getUser().getId() == null) continue;
+                    if (ni.getUser().getId().equals(payload.getFrom())) {
+                        Log.d(TAG, "Found NodeInfo: " + ni);
+                        longName = ni.getUser().getLongName();
+                        break;
+                    }
+                }
+
+                if (longName == null) return;
+*/
+                String myNodeID = MeshtasticMapComponent.getMyNodeID();
+                if (myNodeID == null) return;
+
+                if (myNodeID.equals(payload.getFrom())) {
+                    Log.d(TAG, "Ignoring message from self");
+                    return;
+                }
+
+                if (payload.getTo().equals("^all")) {
+                    Log.d(TAG, "Sending CoT for Text Message");
+                    CotEvent cotEvent = new CotEvent();
+                    CoordinatedTime time = new CoordinatedTime();
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
+
+                    cotEvent.setUID("GeoChat." + payload.getFrom() + ".All Chat Rooms." + UUID.randomUUID());
+                    CotPoint gp = new CotPoint(0, 0, 0, 0, 0);
+                    cotEvent.setPoint(gp);
+                    cotEvent.setHow("m-g");
+                    cotEvent.setType("b-t-f");
+
+                    CotDetail cotDetail = new CotDetail("detail");
+                    cotEvent.setDetail(cotDetail);
+
+                    CotDetail chatDetail = new CotDetail("__chat");
+                    chatDetail.setAttribute("parent", "RootContactGroup");
+                    chatDetail.setAttribute("groupOwner", "false");
+                    chatDetail.setAttribute("messageId", UUID.randomUUID().toString());
+                    chatDetail.setAttribute("chatroom", "All Chat Rooms");
+                    chatDetail.setAttribute("id", "All Chat Rooms");
+                    chatDetail.setAttribute("senderCallsign", payload.getFrom());
+                    cotDetail.addChild(chatDetail);
+
+                    CotDetail chatgrp = new CotDetail("chatgrp");
+                    chatgrp.setAttribute("uid0", payload.getFrom());
+                    chatgrp.setAttribute("uid1", "All Chat Rooms");
+                    chatgrp.setAttribute("id", "All Chat Rooms");
+                    chatDetail.addChild(chatgrp);
+
+                    CotDetail linkDetail = new CotDetail("link");
+                    linkDetail.setAttribute("uid", payload.getFrom());
+                    linkDetail.setAttribute("type", "a-f-G-U-C");
+                    linkDetail.setAttribute("relation", "p-p");
+                    cotDetail.addChild(linkDetail);
+
+                    CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
+                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    cotDetail.addChild(serverDestinationDetail);
+
+                    CotDetail remarksDetail = new CotDetail("remarks");
+                    remarksDetail.setAttribute("source", "BAO.F.ATAK." + payload.getFrom());
+                    remarksDetail.setAttribute("to", "All Chat Rooms");
+                    remarksDetail.setAttribute("time", time.toString());
+                    remarksDetail.setInnerText(new String(payload.getBytes()));
+                    cotDetail.addChild(remarksDetail);
+
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    }
+                }
+
+                if (myNodeID.equals(payload.getTo())) {
+                    Log.d(TAG, "Sending CoT for DM Text Message");
+                    CotEvent cotEvent = new CotEvent();
+                    CoordinatedTime time = new CoordinatedTime();
+                    cotEvent.setTime(time);
+                    cotEvent.setStart(time);
+                    cotEvent.setStale(time.addMinutes(10));
+
+                    cotEvent.setUID("GeoChat." + payload.getFrom() + "." + myNodeID + "." + UUID.randomUUID());
+                    CotPoint gp = new CotPoint(0, 0, 0, 0, 0);
+                    cotEvent.setPoint(gp);
+                    cotEvent.setHow("m-g");
+                    cotEvent.setType("b-t-f");
+
+                    CotDetail cotDetail = new CotDetail("detail");
+                    cotEvent.setDetail(cotDetail);
+
+                    CotDetail chatDetail = new CotDetail("__chat");
+                    chatDetail.setAttribute("parent", "RootContactGroup");
+                    chatDetail.setAttribute("groupOwner", "false");
+                    chatDetail.setAttribute("messageId", UUID.randomUUID().toString());
+                    chatDetail.setAttribute("chatroom", myNodeID);
+                    chatDetail.setAttribute("id", myNodeID);
+                    chatDetail.setAttribute("senderCallsign", payload.getFrom());
+                    cotDetail.addChild(chatDetail);
+
+                    CotDetail chatgrp = new CotDetail("chatgrp");
+                    chatgrp.setAttribute("uid0", payload.getFrom());
+                    chatgrp.setAttribute("uid1", myNodeID);
+                    chatgrp.setAttribute("id", myNodeID);
+                    chatDetail.addChild(chatgrp);
+
+                    CotDetail linkDetail = new CotDetail("link");
+                    linkDetail.setAttribute("uid", payload.getFrom());
+                    linkDetail.setAttribute("type", "a-f-G-U-C");
+                    linkDetail.setAttribute("relation", "p-p");
+                    cotDetail.addChild(linkDetail);
+
+                    CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
+                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    cotDetail.addChild(serverDestinationDetail);
+
+                    CotDetail remarksDetail = new CotDetail("remarks");
+                    remarksDetail.setAttribute("source", "BAO.F.ATAK." + payload.getFrom());
+                    remarksDetail.setAttribute("to", myNodeID);
+                    remarksDetail.setAttribute("time", time.toString());
+                    remarksDetail.setInnerText(new String(payload.getBytes()));
+                    cotDetail.addChild(remarksDetail);
+
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
+                }
+                break;
             case MeshtasticMapComponent.ACTION_NODE_CHANGE:
                 NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
                 if (ni == null) return;
@@ -103,67 +247,71 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 if (ni.getPosition() == null) return;
                 if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
 
-                String longName = ni.getUser().getLongName();
-                CotDetail groupDetail = new CotDetail("__group");
-
-                try {
-                    String teamColor = longName.split("((?= -[0-9]?$))")[1];
-                    Log.d(TAG, "Team Color: " + teamColor);
-                    groupDetail.setAttribute("role", "Team Member");
-                    switch (teamColor) {
-                        case " -0":
-                        case " -1":
-                            groupDetail.setAttribute("name", "White");
-                            break;
-                        case " -2":
-                            groupDetail.setAttribute("name", "Yellow");
-                            break;
-                        case " -3":
-                            groupDetail.setAttribute("name", "Orange");
-                            break;
-                        case " -4":
-                            groupDetail.setAttribute("name", "Magenta");
-                            break;
-                        case " -5":
-                            groupDetail.setAttribute("name", "Red");
-                            break;
-                        case " -6":
-                            groupDetail.setAttribute("name", "Maroon");
-                            break;
-                        case " -7":
-                            groupDetail.setAttribute("name", "Purple");
-                            break;
-                        case " -8":
-                            groupDetail.setAttribute("name", "Dark Blue");
-                            break;
-                        case " -9":
-                            groupDetail.setAttribute("name", "Blue");
-                            break;
-                        case " -10":
-                            groupDetail.setAttribute("name", "Cyan");
-                            break;
-                        case " -11":
-                            groupDetail.setAttribute("name", "Teal");
-                            break;
-                        case " -12":
-                            groupDetail.setAttribute("name", "Green");
-                            break;
-                        case " -13":
-                            groupDetail.setAttribute("name", "Dark Green");
-                            break;
-                        case " -14":
-                            groupDetail.setAttribute("name", "Brown");
-                            break;
-                        default:
-                            groupDetail.setAttribute("name", "Black");
-                            break;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                /*
+                if (ni.getUser().getId().equals(MeshtasticMapComponent.getMyNodeID())) {
+                    Log.d(TAG, "Ignoring self");
                     return;
                 }
-
+                */
                 if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
+                    String nodeName = ni.getUser().getLongName();
+                    CotDetail groupDetail = new CotDetail("__group");
+                    String[] teamColor = {"Unknown", " -0"};
+                    try {
+                        teamColor = nodeName.split("((?= -[0-9]?$))");
+                        groupDetail.setAttribute("role", "Team Member");
+                        switch (teamColor[1]) {
+                            case " -0":
+                            case " -1":
+                                groupDetail.setAttribute("name", "White");
+                                break;
+                            case " -2":
+                                groupDetail.setAttribute("name", "Yellow");
+                                break;
+                            case " -3":
+                                groupDetail.setAttribute("name", "Orange");
+                                break;
+                            case " -4":
+                                groupDetail.setAttribute("name", "Magenta");
+                                break;
+                            case " -5":
+                                groupDetail.setAttribute("name", "Red");
+                                break;
+                            case " -6":
+                                groupDetail.setAttribute("name", "Maroon");
+                                break;
+                            case " -7":
+                                groupDetail.setAttribute("name", "Purple");
+                                break;
+                            case " -8":
+                                groupDetail.setAttribute("name", "Dark Blue");
+                                break;
+                            case " -9":
+                                groupDetail.setAttribute("name", "Blue");
+                                break;
+                            case " -10":
+                                groupDetail.setAttribute("name", "Cyan");
+                                break;
+                            case " -11":
+                                groupDetail.setAttribute("name", "Teal");
+                                break;
+                            case " -12":
+                                groupDetail.setAttribute("name", "Green");
+                                break;
+                            case " -13":
+                                groupDetail.setAttribute("name", "Dark Green");
+                                break;
+                            case " -14":
+                                groupDetail.setAttribute("name", "Brown");
+                                break;
+                            default:
+                                groupDetail.setAttribute("name", "Black");
+                                break;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return;
+                    }
                     Log.d(TAG, "Sending CoT for NodeInfo");
                     CotEvent cotEvent = new CotEvent();
                     CoordinatedTime time = new CoordinatedTime();
@@ -171,7 +319,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));
 
-                    cotEvent.setUID(longName.replaceAll(" -[0-9]*$",""));
+                    cotEvent.setUID(ni.getUser().getId());
                     CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(gp);
                     cotEvent.setHow("m-g");
@@ -184,8 +332,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     remarksDetail.setInnerText(ni.toString());
                     cotDetail.addChild(remarksDetail);
                     CotDetail contactDetail = new CotDetail("contact");
-                    contactDetail.setAttribute("callsign", ni.getUser().getLongName());
-                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
+                    contactDetail.setAttribute("callsign", teamColor[0]);
+                    contactDetail.setAttribute("endpoint", ni.getUser().getId() + ":72:meshtastic");
                     cotDetail.addChild(contactDetail);
 
                     if (cotEvent.isValid()) {

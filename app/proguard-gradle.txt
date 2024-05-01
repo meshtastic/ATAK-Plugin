@@ -72,6 +72,10 @@
 -keep class org.xml.** {*;}
 -keep class org.xmlpull.** {*;}
 
+-keep class atakplugin.Meshtastic.** {*;}
+-keep class com.atakmap.android.meshtastic.** {*;}
+
+
 
 
 -keepclassmembers class com.atakmap.android.maps.** { *; }
