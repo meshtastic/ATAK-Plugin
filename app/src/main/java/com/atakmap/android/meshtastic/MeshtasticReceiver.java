@@ -259,6 +259,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     String[] teamColor = {"Unknown", " -0"};
                     try {
                         teamColor = nodeName.split("((?= -[0-9]?$))");
+                        if (teamColor.length < 2) {
+                            teamColor = new String[]{nodeName, " -10"};
+                        }
                         groupDetail.setAttribute("role", "Team Member");
                         switch (teamColor[1]) {
                             case " -0":
