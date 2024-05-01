@@ -258,7 +258,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotDetail groupDetail = new CotDetail("__group");
                     String[] teamColor = {"Unknown", " -0"};
                     try {
-                        teamColor = nodeName.split("((?= -[0-9]?$))");
+                        teamColor = nodeName.split("((?= -[0-9]+$))");
                         if (teamColor.length < 2) {
                             teamColor = new String[]{nodeName, " -10"};
                         }
