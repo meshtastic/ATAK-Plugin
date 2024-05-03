@@ -166,7 +166,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(linkDetail);
 
                     CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
-                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    serverDestinationDetail.setAttribute("destination", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(serverDestinationDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
@@ -223,7 +223,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(linkDetail);
 
                     CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
-                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    serverDestinationDetail.setAttribute("destination", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(serverDestinationDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
@@ -258,7 +258,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotDetail groupDetail = new CotDetail("__group");
                     String[] teamColor = {"Unknown", " -0"};
                     try {
-                        teamColor = nodeName.split("((?= -[0-9]+$))");
+                        teamColor = nodeName.split("((?= -[0-9]*$))");
+                        Log.d(TAG, String.valueOf(teamColor.length));
+                        for (int i=0; i<teamColor.length; i++) {
+                            Log.d(TAG, "teamColor[" + i + "]: " + teamColor[i]);
+                        }
                         if (teamColor.length < 2) {
                             teamColor = new String[]{nodeName, " -10"};
                         }
@@ -336,16 +340,18 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(remarksDetail);
                     CotDetail contactDetail = new CotDetail("contact");
                     contactDetail.setAttribute("callsign", teamColor[0]);
-                    contactDetail.setAttribute("endpoint", ni.getUser().getId() + ":72:meshtastic");
+                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(contactDetail);
 
-                    if (cotEvent.isValid()) {
-                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        }
-                    } else
-                        Log.e(TAG, "cotEvent was not valid");
+                    new Thread(() -> {
+                        if (cotEvent.isValid()) {
+                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            }
+                        } else
+                            Log.e(TAG, "cotEvent was not valid");
+                    }).start();
                 }
                 break;
         }
@@ -466,7 +472,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail contactDetail = new CotDetail("contact");
                     contactDetail.setAttribute("callsign", callsign);
-                    contactDetail.setAttribute("endpoint", "*:-1:tcp");
+                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(contactDetail);
 
                     CotDetail groupDetail = new CotDetail("__group");
@@ -519,14 +525,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid()) {
-                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        }
-                    }
-                    else
-                        Log.e(TAG, "cotEvent was not valid");
+                    new Thread(() -> {
+                        if (cotEvent.isValid()) {
+                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            }
+                        } else
+                            Log.e(TAG, "cotEvent was not valid");
+                    }).start();
 
 
               /*
@@ -579,7 +586,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(linkDetail);
 
                     CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
-                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    serverDestinationDetail.setAttribute("destination", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(serverDestinationDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
@@ -602,14 +609,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid()) {
-                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                        }
-                    }
-                    else
-                        Log.e(TAG, "cotEvent was not valid");
+                    new Thread(() -> {
+                        if (cotEvent.isValid()) {
+                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            }
+                        } else
+                            Log.e(TAG, "cotEvent was not valid");
+                    }).start();
 
                 } else if (tp.hasChat() && tp.getChat().getTo().equals(MapView.getMapView().getSelfMarker().getUID())) {
                     /*
@@ -663,7 +671,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(linkDetail);
 
                     CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
-                    serverDestinationDetail.setAttribute("destination", "*:-1:tcp");
+                    serverDestinationDetail.setAttribute("destination", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(serverDestinationDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
@@ -686,11 +694,12 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    if (cotEvent.isValid()) {
-                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                    }
-                    else
-                        Log.e(TAG, "cotEvent was not valid");
+                    new Thread(() -> {
+                        if (cotEvent.isValid()) {
+                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        } else
+                            Log.e(TAG, "cotEvent was not valid");
+                    }).start();
                 }
 
             } catch (InvalidProtocolBufferException e) {
