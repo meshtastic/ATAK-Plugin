@@ -12,6 +12,7 @@ import android.preference.PreferenceManager;
 
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.editableShapes.EditablePolyline;
+import com.atakmap.android.ipc.AtakBroadcast;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
@@ -40,11 +41,29 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     private final String TAG = "MeshtasticReceiver";
 
     private SharedPreferences prefs;
+    private boolean setRate = false;
     @Override
     public void onReceive(Context context, Intent intent) {
 
         prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
-
+        if (!setRate) {
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("locationReportingStrategy", "Constant");
+            editor.putString("constantReportingRateUnreliable", "120");
+            editor.putString("constantReportingRateReliable", "120");
+            editor.apply();
+            // } else if (message.equals("CONFIG_RATE_DYN")) {
+            //     SharedPreferences.Editor editor = prefs.edit();
+            //editor.putString("locationReportingStrategy", "Dynamic");
+            editor.putString("dynamicReportingRateStationaryUnreliable", "120");
+            editor.putString("dynamicReportingRateMinUnreliable", "120");
+            editor.putString("dynamicReportingRateMaxUnreliable", "120");
+            editor.putString("dynamicReportingRateStationaryReliable", "120");
+            editor.putString("dynamicReportingRateMinReliable", "120");
+            editor.putString("dynamicReportingRateMaxReliable", "120");
+            editor.apply();
+            setRate = true;
+        }
         String action = intent.getAction();
         if (action == null) return;
         Log.d(TAG, "ACTION: " + action);
@@ -368,7 +387,23 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
-            if (message.startsWith("CHUNK")) {
+            if (message.equals("CONFIG_RATE_CONSTANT")) {
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString("locationReportingStrategy", "Constant");
+                editor.putString("constantReportingRateUnreliable", "120");
+                editor.putString("constantReportingRateReliable", "120");
+                editor.apply();
+           // } else if (message.equals("CONFIG_RATE_DYN")) {
+           //     SharedPreferences.Editor editor = prefs.edit();
+                editor.putString("locationReportingStrategy", "Dynamic");
+                editor.putString("dynamicReportingRateStationaryUnreliable", "120");
+                editor.putString("dynamicReportingRateMinUnreliable", "120");
+                editor.putString("dynamicReportingRateMaxUnreliable", "120");
+                editor.putString("dynamicReportingRateStationaryReliable", "120");
+                editor.putString("dynamicReportingRateMinReliable", "120");
+                editor.putString("dynamicReportingRateMaxReliable", "120");
+                editor.apply();
+            } else if (message.startsWith("CHUNK")) {
                 Log.d(TAG, "Received Chunked message");
                 chunking = true;
                 if (cotSize == 0) {
