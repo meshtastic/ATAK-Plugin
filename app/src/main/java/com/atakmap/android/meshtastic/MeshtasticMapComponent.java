@@ -9,14 +9,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 
+import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.widget.Toast;
 
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.AbstractMapComponent;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.app.preferences.ToolsPreferenceFragment;
+import com.atakmap.coremap.filesystem.FileSystemUtils;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotDetail;
@@ -46,38 +49,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType;
 
-public class MeshtasticMapComponent extends AbstractMapComponent implements CommsMapComponent.PreSendProcessor {
-
+public class MeshtasticMapComponent extends AbstractMapComponent implements CommsMapComponent.PreSendProcessor, SharedPreferences.OnSharedPreferenceChangeListener {
     private static final String TAG = "MeshtasticMapComponent";
-
     private Context pluginContext;
     public static CotShrinkerFactory cotShrinkerFactory = new CotShrinkerFactory();
     public static CotShrinker cotShrinker = cotShrinkerFactory.createCotShrinker();
-
     public enum ServiceConnectionState {
         DISCONNECTED,
         CONNECTED
     }
-
     private static IMeshService mMeshService;
     private static ServiceConnection mServiceConnection;
-
     private static Intent mServiceIntent;
-
     public static ServiceConnectionState mConnectionState = ServiceConnectionState.DISCONNECTED;
-
-
-    /**
-     * Service Intent
-     */
     public static final String PACKAGE_NAME = "com.geeksville.mesh";
     public static final String CLASS_NAME = "com.geeksville.mesh.service.MeshService";
-
-    /**
-     * Intents the Meshtastic service can send
-     */
     public static final String ACTION_MESH_CONNECTED = "com.geeksville.mesh.MESH_CONNECTED";
     public static final String ACTION_MESH_DISCONNECTED = "com.geeksville.mesh.MESH_DISCONNECTED";
     public static final String ACTION_RECEIVED_ATAK_FORWARDER = "com.geeksville.mesh.RECEIVED.ATAK_FORWARDER";
@@ -87,10 +74,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static final String ACTION_TEXT_MESSAGE_APP = "com.geeksville.mesh.RECEIVED.TEXT_MESSAGE_APP";
     public static final String ACTION_NODE_CHANGE = "com.geeksville.mesh.NODE_CHANGE";
     public static final String ACTION_MESSAGE_STATUS = "com.geeksville.mesh.MESSAGE_STATUS";
-
-    /**
-     * Extra data fields from the Meshtastic service
-     */
     public static final String EXTRA_CONNECTED = "com.geeksville.mesh.Connected";
     public static final String EXTRA_DISCONNECTED = "com.geeksville.mesh.disconnected";
     public static final String EXTRA_PERMANENT = "com.geeksville.mesh.Permanent";
@@ -104,6 +87,8 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static final String ACTION_CONFIG_RATE = "com.atakmap.android.meshtastic.CONFIG";
     public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
+    private SharedPreferences prefs;
+
     public static List<byte[]> divideArray(byte[] source, int chunksize) {
 
         List<byte[]> result = new ArrayList<>();
@@ -138,7 +123,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             return "";
         }
     }
-
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
 
@@ -239,6 +223,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                 }
             } catch (XmlPullParserException | IOException e) {
                 e.printStackTrace();
+                return;
             }
 
             ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
@@ -434,7 +419,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                 try {
                     mMeshService.send(dp);
                 } catch (RemoteException e) {
-                    throw new RuntimeException(e);
+                    e.printStackTrace();
                 }
                 return;
             }
@@ -454,13 +439,15 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                     System.arraycopy(c, 0, combined, chunk_hdr.length, c.length);
                 } catch (Exception e) {
                     e.printStackTrace();
+                    return;
                 }
                 // send out 1 chunk
                 dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
                 try {
                     mMeshService.send(dp);
                 } catch (RemoteException e) {
-                    throw new RuntimeException(e);
+                    e.printStackTrace();
+                    return;
                 }
             }
 
@@ -469,18 +456,19 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             try {
                 mMeshService.send(dp);
             } catch (RemoteException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
+                return;
             }
         }
     }
-
-
     public void onCreate(final Context context, Intent intent, MapView view) {
 
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
-
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
+
+        prefs = PreferenceManager.getDefaultSharedPreferences(view.getContext());
+        prefs.registerOnSharedPreferenceChangeListener(this);
 
         mr = new MeshtasticReceiver();
         IntentFilter intentFilter = new IntentFilter();
@@ -533,8 +521,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                         new PluginPreferencesFragment(
                                 pluginContext)));
     }
-
-
     public static boolean reconnect() throws RemoteException {
         boolean ret = getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {
@@ -542,12 +528,24 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         }
         return ret;
     }
-
-
     @Override
     protected void onDestroyImpl(Context context, MapView view) {
         view.getContext().unbindService(mServiceConnection);
         view.getContext().unregisterReceiver(mr);
         mw.destroy();
+        prefs.unregisterOnSharedPreferenceChangeListener(this);
+    }
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        if (key == null) return;
+        if (FileSystemUtils.isEquals(key, "plugin_meshtastic_rate_value")) {
+            String rate = prefs.getString("plugin_meshtastic_rate_value", "0");
+            Log.d(TAG, "Rate: " + rate);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("locationReportingStrategy", "Constant");
+            editor.putString("constantReportingRateUnreliable", rate);
+            editor.putString("constantReportingRateReliable", rate);
+            editor.apply();
+        }
     }
 }

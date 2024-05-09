@@ -4,7 +4,7 @@
     <com.atakmap.android.gui.PanSwitchPreference
         android:key="plugin_meshtastic_server"
         android:title="Enable relay to server"
-        android:summary="If enabled, messages will be relayed to the server"
+        android:summary="If enabled, messages from Meshtastic will relay to connected TAK servers"
         android:dialogTitle="Enable relay to server"
         android:defaultValue="false"/>
     <com.atakmap.android.gui.PanSwitchPreference
@@ -13,5 +13,26 @@
         android:summary="If enabled, all Meshtastic devices will be shown on the map"
         android:dialogTitle="Show all Meshtastic devices"
         android:defaultValue="false"/>
-
+    <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_self"
+        android:title="Do not show your local Meshtastic node"
+        android:summary="If enabled, your local Meshtastic node will not be shown on the map"
+        android:dialogTitle="Do not show your local Meshtastic node"
+        android:dependency="plugin_meshtastic_tracker"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanSwitchPreference
+    android:key="plugin_meshtastic_rate"
+        android:title="Enable reporting rate controls"
+        android:summary="If enabled, ATAK will switch to Constant reporting mode"
+        android:dialogTitle="Enable reporting rate controls"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanListPreference
+    android:key="plugin_meshtastic_rate_value"
+        android:title="Reporting rate"
+        android:summary="Select ATAK's constant reporting rate in minutes"
+        android:dialogTitle="Reporting rate"
+        android:entries="@array/rates"
+        android:entryValues="@array/rate_values"
+        android:dependency="plugin_meshtastic_rate"
+        android:defaultValue="1"/>
 </PreferenceScreen>

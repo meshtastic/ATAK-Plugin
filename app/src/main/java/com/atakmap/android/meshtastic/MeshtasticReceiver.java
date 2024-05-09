@@ -1,7 +1,5 @@
 package com.atakmap.android.meshtastic;
 
-import static java.util.Objects.*;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,14 +9,11 @@ import android.os.RemoteException;
 import android.preference.PreferenceManager;
 
 import com.atakmap.android.cot.CotMapComponent;
-import com.atakmap.android.editableShapes.EditablePolyline;
-import com.atakmap.android.ipc.AtakBroadcast;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
 import com.atakmap.coremap.log.Log;
-import com.atakmap.coremap.maps.coords.GeoPoint;
 import com.atakmap.coremap.maps.time.CoordinatedTime;
 
 import com.geeksville.mesh.ATAKProtos;
@@ -33,37 +28,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.UUID;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
-
     private final String TAG = "MeshtasticReceiver";
-
     private SharedPreferences prefs;
-    private boolean setRate = false;
+
     @Override
     public void onReceive(Context context, Intent intent) {
-
         prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
-        if (!setRate) {
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString("locationReportingStrategy", "Constant");
-            editor.putString("constantReportingRateUnreliable", "120");
-            editor.putString("constantReportingRateReliable", "120");
-            editor.apply();
-            // } else if (message.equals("CONFIG_RATE_DYN")) {
-            //     SharedPreferences.Editor editor = prefs.edit();
-            //editor.putString("locationReportingStrategy", "Dynamic");
-            editor.putString("dynamicReportingRateStationaryUnreliable", "120");
-            editor.putString("dynamicReportingRateMinUnreliable", "120");
-            editor.putString("dynamicReportingRateMaxUnreliable", "120");
-            editor.putString("dynamicReportingRateStationaryReliable", "120");
-            editor.putString("dynamicReportingRateMinReliable", "120");
-            editor.putString("dynamicReportingRateMaxReliable", "120");
-            editor.apply();
-            setRate = true;
-        }
         String action = intent.getAction();
         if (action == null) return;
         Log.d(TAG, "ACTION: " + action);
@@ -261,17 +234,27 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             case MeshtasticMapComponent.ACTION_NODE_CHANGE:
                 NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
                 if (ni == null) return;
-                Log.d(TAG, ni.toString());
                 if (ni.getUser() == null) return;
                 if (ni.getPosition() == null) return;
                 if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
+                Log.d(TAG, ni.toString());
 
-                /*
-                if (ni.getUser().getId().equals(MeshtasticMapComponent.getMyNodeID())) {
+                List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
+                if (nodes == null) {
+                    Log.d(TAG, "nodes was null");
+                } else {
+                    for (NodeInfo nodeInfo : nodes) {
+                        if (nodeInfo == null) continue;
+                        Log.d(TAG, nodeInfo.toString());
+                    }
+                }
+
+
+                if (ni.getUser().getId().equals(MeshtasticMapComponent.getMyNodeID()) && prefs.getBoolean("plugin_meshtastic_self", false)) {
                     Log.d(TAG, "Ignoring self");
                     return;
                 }
-                */
+
                 if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
                     String nodeName = ni.getUser().getLongName();
                     CotDetail groupDetail = new CotDetail("__group");
@@ -345,7 +328,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));
 
-                    cotEvent.setUID(ni.getUser().getId());
+                    cotEvent.setUID(String.valueOf(teamColor[0].hashCode()));
                     CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(gp);
                     cotEvent.setHow("m-g");
@@ -354,13 +337,27 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     CotDetail cotDetail = new CotDetail("detail");
                     cotEvent.setDetail(cotDetail);
                     cotDetail.addChild(groupDetail);
-                    CotDetail remarksDetail = new CotDetail("remarks");
-                    remarksDetail.setInnerText(ni.toString());
-                    cotDetail.addChild(remarksDetail);
+
+                    CotDetail batteryDetail = new CotDetail("status");
+                    batteryDetail.setAttribute("battery", String.valueOf(ni.getDeviceMetrics().getBatteryLevel()));
+                    cotDetail.addChild(batteryDetail);
+
+                    CotDetail takvDetail = new CotDetail("takv");
+                    takvDetail.setAttribute("platform", "Meshtastic Plugin");
+                    takvDetail.setAttribute("version", "1.0.18" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("device", ni.getUser().getHwModelString());
+                    takvDetail.setAttribute("os", "Meshtastic Plugin");
+                    cotDetail.addChild(takvDetail);
+
+                    CotDetail uidDetail = new CotDetail("uid");
+                    uidDetail.setAttribute("Droid", teamColor[0]);
+                    cotDetail.addChild(uidDetail);
+
                     CotDetail contactDetail = new CotDetail("contact");
                     contactDetail.setAttribute("callsign", teamColor[0]);
-                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
+                    contactDetail.setAttribute("endpoint", "*:-1:tcp");
                     cotDetail.addChild(contactDetail);
+
 
                     new Thread(() -> {
                         if (cotEvent.isValid()) {
@@ -375,7 +372,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 break;
         }
     }
-
     List<byte[]> chunks = new ArrayList<>();
     boolean chunking = false;
     int cotSize = 0;
@@ -387,6 +383,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
+            /*
             if (message.equals("CONFIG_RATE_CONSTANT")) {
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putString("locationReportingStrategy", "Constant");
@@ -403,7 +400,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 editor.putString("dynamicReportingRateMinReliable", "120");
                 editor.putString("dynamicReportingRateMaxReliable", "120");
                 editor.apply();
-            } else if (message.startsWith("CHUNK")) {
+            } else
+            */
+            if (message.startsWith("CHUNK")) {
                 Log.d(TAG, "Received Chunked message");
                 chunking = true;
                 if (cotSize == 0) {
