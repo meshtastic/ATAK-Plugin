@@ -321,14 +321,14 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         e.printStackTrace();
                         return;
                     }
-                    Log.d(TAG, "Sending CoT for NodeInfo");
+                    Log.d(TAG, "Creating CoT for Sensor NodeInfo");
                     CotEvent cotEvent = new CotEvent();
                     CoordinatedTime time = new CoordinatedTime();
                     cotEvent.setTime(time);
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));
 
-                    cotEvent.setUID(String.valueOf(teamColor[0].hashCode()));
+                    cotEvent.setUID(ni.getUser().getId());
                     CotPoint gp = new CotPoint(ni.getPosition().getLatitude(), ni.getPosition().getLongitude(), ni.getPosition().getAltitude(), CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(gp);
                     cotEvent.setHow("m-g");
