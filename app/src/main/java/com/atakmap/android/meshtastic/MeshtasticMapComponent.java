@@ -409,6 +409,10 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             }
 
         } else {
+            if (prefs.getBoolean("plugin_meshtastic_plichat_only", false)) {
+                return;
+            }
+
             byte[] cotAsBytes = cotShrinker.toByteArrayLossy(cotEvent);
 
             Log.d(TAG, "Size: " + cotAsBytes.length);

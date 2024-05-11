@@ -236,7 +236,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 if (ni == null) return;
                 if (ni.getUser() == null) return;
                 if (ni.getPosition() == null) return;
-                if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
+                if (prefs.getBoolean("plugin_meshtastic_nogps", false))
+                    if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
+
                 Log.d(TAG, ni.toString());
 
                 List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
@@ -338,9 +340,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotEvent.setDetail(cotDetail);
                     cotDetail.addChild(groupDetail);
 
-                    CotDetail batteryDetail = new CotDetail("status");
-                    batteryDetail.setAttribute("battery", String.valueOf(ni.getDeviceMetrics().getBatteryLevel()));
-                    cotDetail.addChild(batteryDetail);
+                    if (ni.getDeviceMetrics() != null) {
+                        CotDetail batteryDetail = new CotDetail("status");
+                        batteryDetail.setAttribute("battery", String.valueOf(ni.getDeviceMetrics().getBatteryLevel()));
+                        cotDetail.addChild(batteryDetail);
+                    }
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");

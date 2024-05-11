@@ -14,6 +14,12 @@
         android:dialogTitle="Show all Meshtastic devices"
         android:defaultValue="false"/>
     <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_nogps"
+        android:title="Don't show Meshtastic devices without GPS"
+        android:summary="If enabled, Meshtastic devices without GPS will not be shown on the map"
+        android:dialogTitle="Don't show Meshtastic devices without GPS"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanSwitchPreference
         android:key="plugin_meshtastic_self"
         android:title="Do not show your local Meshtastic node"
         android:summary="If enabled, your local Meshtastic node will not be shown on the map"
@@ -35,4 +41,10 @@
         android:entryValues="@array/rate_values"
         android:dependency="plugin_meshtastic_rate"
         android:defaultValue="1"/>
+    <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_plichat_only"
+        android:title="Only send PLI and Chat messages over Meshtastic"
+        android:summary="If enabled, only PLI and Chat messages will be sent over Meshtastic"
+        android:dialogTitle="Only send PLI and Chat messages over Meshtastic"
+        android:defaultValue="false"/>
 </PreferenceScreen>
