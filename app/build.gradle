@@ -220,9 +220,13 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
 
-    implementation 'com.paulmandal.atak:libcotshrink:1.0.4'
+    implementation ('com.paulmandal.atak:libcotshrink:1.0.4') {
+        exclude group: 'com.google.protobuf', module: 'protobuf-javalite'
+    }
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
-    implementation 'com.google.protobuf:protobuf-kotlin-lite:3.21.12'
+    implementation 'com.google.protobuf:protobuf-kotlin:3.21.12'
+
+
 
 
 
@@ -231,22 +235,22 @@ dependencies {
 
 protobuf {
     protoc {
-        artifact = 'com.google.protobuf:protoc:3.21.9'
+        artifact = 'com.google.protobuf:protoc:3.21.12'
     }
+    /*
     plugins {
         javalite {
             // The codegen for lite comes as a separate artifact
             artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
         }
     }
+    */
     generateProtoTasks {
         all().each { task ->
             task.builtins {
                 java {
-                    option 'lite'
                 }
                 kotlin {
-                    option 'lite'
                 }
             }
         }
