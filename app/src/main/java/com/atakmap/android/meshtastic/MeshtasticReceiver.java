@@ -251,8 +251,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     }
                 }
 
+                String myId = MeshtasticMapComponent.getMyNodeID();
+                if (myId == null) return;
 
-                if (ni.getUser().getId().equals(MeshtasticMapComponent.getMyNodeID()) && prefs.getBoolean("plugin_meshtastic_self", false)) {
+                if (ni.getUser().getId().equals(myId) && prefs.getBoolean("plugin_meshtastic_self", false)) {
                     Log.d(TAG, "Ignoring self");
                     return;
                 }
@@ -348,9 +350,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");
-                    takvDetail.setAttribute("version", "1.0.18" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("version", "1.0.20" + "\n----NodeInfo----\n" + ni.toString());
                     takvDetail.setAttribute("device", ni.getUser().getHwModelString());
-                    takvDetail.setAttribute("os", "Meshtastic Plugin");
+                    takvDetail.setAttribute("os", "0");
                     cotDetail.addChild(takvDetail);
 
                     CotDetail uidDetail = new CotDetail("uid");
@@ -359,7 +361,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail contactDetail = new CotDetail("contact");
                     contactDetail.setAttribute("callsign", teamColor[0]);
-                    contactDetail.setAttribute("endpoint", "*:-1:tcp");
+                    contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(contactDetail);
 
 
@@ -387,25 +389,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
-            /*
-            if (message.equals("CONFIG_RATE_CONSTANT")) {
-                SharedPreferences.Editor editor = prefs.edit();
-                editor.putString("locationReportingStrategy", "Constant");
-                editor.putString("constantReportingRateUnreliable", "120");
-                editor.putString("constantReportingRateReliable", "120");
-                editor.apply();
-           // } else if (message.equals("CONFIG_RATE_DYN")) {
-           //     SharedPreferences.Editor editor = prefs.edit();
-                editor.putString("locationReportingStrategy", "Dynamic");
-                editor.putString("dynamicReportingRateStationaryUnreliable", "120");
-                editor.putString("dynamicReportingRateMinUnreliable", "120");
-                editor.putString("dynamicReportingRateMaxUnreliable", "120");
-                editor.putString("dynamicReportingRateStationaryReliable", "120");
-                editor.putString("dynamicReportingRateMinReliable", "120");
-                editor.putString("dynamicReportingRateMaxReliable", "120");
-                editor.apply();
-            } else
-            */
             if (message.startsWith("CHUNK")) {
                 Log.d(TAG, "Received Chunked message");
                 chunking = true;
