@@ -233,14 +233,29 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 break;
             case MeshtasticMapComponent.ACTION_NODE_CHANGE:
                 NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
-                if (ni == null) return;
-                if (ni.getUser() == null) return;
-                if (ni.getPosition() == null) return;
-                if (prefs.getBoolean("plugin_meshtastic_nogps", false))
-                    if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) return;
+                if (ni == null) {
+                    Log.d(TAG, "NodeInfo was null");
+                    return;
+                }
+                if (ni.getUser() == null) {
+                    Log.d(TAG, "getUser was null");
+                    return;
+                }
+                if (ni.getPosition() == null) {
+                    Log.d(TAG, "getPosition was null");
+                    return;
+                }
+                if (prefs.getBoolean("plugin_meshtastic_nogps", false)) {
+                    if (ni.getPosition().getLatitude() == 0 && ni.getPosition().getLongitude() == 0) {
+                        Log.d(TAG, "Ignoring NodeInfo with 0,0 GPS");
+                        return;
+                    }
+                    Log.d(TAG, "NodeInfo GPS: " + ni.getPosition().getLatitude() + ", " + ni.getPosition().getLongitude() + ", Ignoring due to preferences");
+                }
 
                 Log.d(TAG, ni.toString());
 
+                /*
                 List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
                 if (nodes == null) {
                     Log.d(TAG, "nodes was null");
@@ -250,9 +265,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         Log.d(TAG, nodeInfo.toString());
                     }
                 }
+                */
 
                 String myId = MeshtasticMapComponent.getMyNodeID();
-                if (myId == null) return;
+                if (myId == null) {
+                    Log.d(TAG, "myId was null");
+                    return;
+                }
 
                 if (ni.getUser().getId().equals(myId) && prefs.getBoolean("plugin_meshtastic_self", false)) {
                     Log.d(TAG, "Ignoring self");
@@ -350,9 +369,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");
-                    takvDetail.setAttribute("version", "1.0.20" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("version", "1.0.21" + "\n----NodeInfo----\n" + ni.toString());
                     takvDetail.setAttribute("device", ni.getUser().getHwModelString());
-                    takvDetail.setAttribute("os", "0");
+                    takvDetail.setAttribute("os", "1");
                     cotDetail.addChild(takvDetail);
 
                     CotDetail uidDetail = new CotDetail("uid");
@@ -365,15 +384,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     cotDetail.addChild(contactDetail);
 
 
-                    new Thread(() -> {
-                        if (cotEvent.isValid()) {
-                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                            }
-                        } else
-                            Log.e(TAG, "cotEvent was not valid");
-                    }).start();
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
                 }
                 break;
         }
@@ -467,6 +484,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             Log.d(TAG, "Payload: " + t);
             try {
                 ATAKProtos.TAKPacket tp = ATAKProtos.TAKPacket.parseFrom(payload.getBytes());
+                if (tp.getIsCompressed()) {
+                    Log.d(TAG, "TAK_PACKET is compressed");
+                    return;
+                }
                 Log.d(TAG, "TAK_PACKET: " + tp.toString());
                 if (tp.hasPli()) {
                     Log.d(TAG, "TAK_PACKET PLI");
@@ -546,15 +567,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    new Thread(() -> {
-                        if (cotEvent.isValid()) {
-                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                            }
-                        } else
-                            Log.e(TAG, "cotEvent was not valid");
-                    }).start();
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
 
 
               /*
@@ -630,15 +649,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    new Thread(() -> {
-                        if (cotEvent.isValid()) {
-                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                            if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                                CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
-                            }
-                        } else
-                            Log.e(TAG, "cotEvent was not valid");
-                    }).start();
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                        if (prefs.getBoolean("plugin_meshtastic_server", false)) {
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        }
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
 
                 } else if (tp.hasChat() && tp.getChat().getTo().equals(MapView.getMapView().getSelfMarker().getUID())) {
                     /*
@@ -715,12 +732,10 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
 
-                    new Thread(() -> {
-                        if (cotEvent.isValid()) {
-                            CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        } else
-                            Log.e(TAG, "cotEvent was not valid");
-                    }).start();
+                    if (cotEvent.isValid()) {
+                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                    } else
+                        Log.e(TAG, "cotEvent was not valid");
                 }
 
             } catch (InvalidProtocolBufferException e) {

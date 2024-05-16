@@ -126,9 +126,6 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
 
-        Log.d(TAG, "callsign: " + getMapView().getDeviceCallsign());
-        Log.d(TAG, "device callsign: " + getMapView().getSelfMarker().getUID());
-
         if (mConnectionState == ServiceConnectionState.DISCONNECTED)
             return;
 
@@ -147,7 +144,13 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         double alt = getMapView().getSelfMarker().getPoint().getAltitude();
         double lat = getMapView().getSelfMarker().getPoint().getLatitude();
         double lng = getMapView().getSelfMarker().getPoint().getLongitude();
-        Log.d(TAG, String.format("ALT:%f LAT:%f LNG:%f", alt, lat, lng));
+        if (lat == 0 && lng == 0) {
+            return;
+        } else {
+            Log.d(TAG, "callsign: " + getMapView().getDeviceCallsign());
+            Log.d(TAG, "device callsign: " + getMapView().getSelfMarker().getUID());
+            Log.d(TAG, String.format("ALT:%f LAT:%f LNG:%f", alt, lat, lng));
+        }
 
         try {
             factory = XmlPullParserFactory.newInstance();
@@ -160,8 +163,11 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             return;
         }
 
-        // self PLI report
-        if (cotEvent.getUID().equals(getMapView().getSelfMarker().getUID())) {
+        if (cotEvent.getUID().startsWith("!") && cotEvent.getType().equals("a-f-G-E-S")) {
+            Log.d(TAG, "Don't forward Meshtastic Nodes");
+            return;
+        } else if (cotEvent.getUID().equals(getMapView().getSelfMarker().getUID())) {
+            // self PLI report
             /*
             <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
             <event version='2.0' uid='ANDROID-e612f0e922b56a63' type='a-f-G-U-C' time='2024-02-06T19:27:18.246Z' start='2024-02-06T19:27:18.246Z' stale='2024-02-06T19:33:33.246Z' how='h-e'>
@@ -177,7 +183,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             </detail>
             </event>
              */
-            Log.d(TAG, "self marker PLI");
+            Log.d(TAG, "Sending self marker PLI to Meshtastic");
 
             int battery = 0, course = 0, speed = 0;
             String role = null, name = null;
@@ -261,7 +267,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             }
         // GeoChat All Chat Rooms
         } else if (cotEvent.getType().equalsIgnoreCase("b-t-f") && cotEvent.getUID().contains("All Chat Rooms")) {
-            Log.d(TAG, "All Chat Rooms");
+            Log.d(TAG, "Sending All Chat Rooms to Meshtastic");
             /*
             <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
             <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.All Chat Rooms.d22bcfac-2c28-4e0c-8133-172928ba59b7' type='b-t-f' time='2024-02-07T19:02:09.192Z' start='2024-02-07T19:02:09.192Z' stale='2024-02-08T19:02:09.192Z' how='h-g-i-g-o'>
@@ -330,7 +336,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
             }
 
         } else if (cotEvent.getType().equalsIgnoreCase("b-t-f")) {
-            Log.d(TAG, "DM Chat");
+            Log.d(TAG, "Sending DM Chat to Meshtastic");
                     /*
                     <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
                     <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.ANDROID-b5c2b8340a0a2cd5.23c1f487-7111-4995-89f5-7709a9c99518' type='b-t-f' time='2024-02-07T19:04:06.683Z' start='2024-02-07T19:04:06.683Z' stale='2024-02-08T19:04:06.683Z' how='h-g-i-g-o'>
@@ -398,8 +404,10 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
             // if "to" starts with !, its probably a meshtastic ID, so don't send it to ^all but the actual ID
             if (to.startsWith("!")) {
+                Log.d(TAG, "Sending to Meshtastic ID: " + to);
                 dp = new DataPacket(to, MeshProtos.Data.newBuilder().setPayload(ByteString.copyFrom(message.getBytes(StandardCharsets.UTF_8))).build().toByteArray(),Portnums.PortNum.TEXT_MESSAGE_APP_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             } else {
+                Log.d(TAG, "Sending to ^all");
                 dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
             }
             try {
@@ -410,8 +418,11 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
 
         } else {
             if (prefs.getBoolean("plugin_meshtastic_plichat_only", false)) {
+                Log.d(TAG, "PLI/Chat Only");
                 return;
             }
+
+            Log.d(TAG, "Using libcotshrink");
 
             byte[] cotAsBytes = cotShrinker.toByteArrayLossy(cotEvent);
 
