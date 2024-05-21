@@ -1,2 +1,2 @@
-include ':app'
+include ':models', ':app'
 rootProject.name = "Meshtastic Plugin"

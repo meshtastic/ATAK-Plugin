@@ -1,8 +1,10 @@
 
 package com.atakmap.android.meshtastic;
 
+import static com.atakmap.android.maps.MapView._mapView;
 import static com.atakmap.android.maps.MapView.getMapView;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -10,13 +12,20 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
+import android.speech.tts.TextToSpeech;
+import android.view.KeyEvent;
+import android.view.View;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
+
+import com.atakmap.android.dropdown.DropDownMapComponent;
+import com.atakmap.android.ipc.AtakBroadcast;
 import com.atakmap.android.maps.MapView;
-import com.atakmap.android.maps.AbstractMapComponent;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.app.preferences.ToolsPreferenceFragment;
 import com.atakmap.coremap.filesystem.FileSystemUtils;
@@ -48,9 +57,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
-public class MeshtasticMapComponent extends AbstractMapComponent implements CommsMapComponent.PreSendProcessor, SharedPreferences.OnSharedPreferenceChangeListener {
+public class MeshtasticMapComponent extends DropDownMapComponent
+        implements CommsMapComponent.PreSendProcessor,
+        SharedPreferences.OnSharedPreferenceChangeListener {
     private static final String TAG = "MeshtasticMapComponent";
     private Context pluginContext;
     public static CotShrinkerFactory cotShrinkerFactory = new CotShrinkerFactory();
@@ -59,6 +71,7 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         DISCONNECTED,
         CONNECTED
     }
+    private MeshtasticDropDownReceiver ddr;
     private static IMeshService mMeshService;
     private static ServiceConnection mServiceConnection;
     private static Intent mServiceIntent;
@@ -88,6 +101,14 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
     public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
     private SharedPreferences prefs;
+
+    public static void sendToMesh(DataPacket dp) {
+        try {
+            mMeshService.send(dp);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
 
     public static List<byte[]> divideArray(byte[] source, int chunksize) {
 
@@ -482,6 +503,12 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
 
+        Log.d(TAG, "registering the plugin filter");
+        ddr = new MeshtasticDropDownReceiver(view, context);
+        AtakBroadcast.DocumentedIntentFilter ddFilter = new AtakBroadcast.DocumentedIntentFilter();
+        ddFilter.addAction(MeshtasticDropDownReceiver.SHOW_PLUGIN);
+        registerDropDownReceiver(ddr, ddFilter);
+
         prefs = PreferenceManager.getDefaultSharedPreferences(view.getContext());
         prefs.registerOnSharedPreferenceChangeListener(this);
 
@@ -519,7 +546,9 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
                 mw.setIcon("red");
             }
         };
-        
+
+
+
         boolean ret = view.getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {
             Toast.makeText(getMapView().getContext(), "Failed to bind to Meshtastic IMeshService", Toast.LENGTH_LONG).show();
@@ -549,6 +578,8 @@ public class MeshtasticMapComponent extends AbstractMapComponent implements Comm
         view.getContext().unregisterReceiver(mr);
         mw.destroy();
         prefs.unregisterOnSharedPreferenceChangeListener(this);
+        ToolsPreferenceFragment.unregister(pluginContext.getString(R.string.preferences_title));
+
     }
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {

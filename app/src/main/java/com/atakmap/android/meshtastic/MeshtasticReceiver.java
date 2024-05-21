@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
+import android.speech.tts.TextToSpeech;
 
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
@@ -91,8 +92,13 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Got a meshtastic text message");
                 DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
                 if (payload == null) return;
-                Log.d(TAG, "Message: " + new String(payload.getBytes()));
+                String message = new String(payload.getBytes());
+                Log.d(TAG, "Message: " + message);
                 Log.d(TAG, payload.toString());
+
+                if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
+                    MeshtasticDropDownReceiver.t1.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+                }
 /*
                 String longName = null;
                 List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
@@ -171,7 +177,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                        //    CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
                         }
                     }
                 }

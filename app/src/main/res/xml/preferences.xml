@@ -47,4 +47,17 @@
         android:summary="If enabled, only PLI and Chat messages will be sent over Meshtastic"
         android:dialogTitle="Only send PLI and Chat messages over Meshtastic"
         android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_voice"
+        android:title="Use Text to Speech for incoming messages"
+        android:summary="If enabled, TTS will be used on Meshtastic text messages"
+        android:dialogTitle="Use Text to Speech for incoming messages"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plugin_meshtastic_ptt"
+        android:title="PTT KeyCode"
+        android:summary="Enter your PTT KeyCode value"
+        android:dialogTitle="PTT KeyCode"
+        android:inputType="number"
+        android:defaultValue="79"/>
 </PreferenceScreen>
