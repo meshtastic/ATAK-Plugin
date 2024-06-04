@@ -7,7 +7,8 @@ There is now a Meshtastic Tool menu, it currently is only used for recording Voi
 # Settings
 The plugin currently has the following settings:
 - Enable relay to server, this forwards all CotEvents (except DMs) to any connected TAKServers
-- Show all Meshtastic devices, this will place Sensor CoTs on the map for meshtastic devices that have non-zero GPS
+- Show all Meshtastic devices, this will place Sensor CoTs on the map for meshtastic devices
+- Do not show Meshtastic devices without GPS, this will not place Sensor CoTs for meshtastic devices without GPS (0,0)
 - Do not show your local node, this will not place a Sensor CoT on the map for the meshtastic device currently bound to the EUD
 - Enable reporting rate controls, this will set ATAK's reporting rate to Constant and allow you to pick a interval from 1,5,10,20,30 minutes
 - Reporting rate, the menu to pick the interval in minutes
