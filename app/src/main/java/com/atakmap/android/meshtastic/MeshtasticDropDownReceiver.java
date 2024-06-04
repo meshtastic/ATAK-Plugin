@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.os.Build;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
@@ -24,11 +25,16 @@ import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.coremap.log.Log;
 import com.geeksville.mesh.ATAKProtos;
+import com.geeksville.mesh.AppOnlyProtos;
+import com.geeksville.mesh.ConfigProtos;
 import com.geeksville.mesh.DataPacket;
+import com.geeksville.mesh.LocalOnlyProtos;
 import com.geeksville.mesh.MeshProtos;
 import com.geeksville.mesh.MessageStatus;
+import com.geeksville.mesh.NodeInfo;
 import com.geeksville.mesh.Portnums;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.vosk.Model;
 import org.vosk.Recognizer;
@@ -62,7 +68,7 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
     private final Context appContext;
     private final MapView mapView;
     private final View mainView;
-    private Button voiceMemoBtn;
+    private Button voiceMemoBtn, configBtn;
     private Model model;
     public SpeechService speechService;
     private TextView tv;
@@ -71,6 +77,8 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
     public static TextToSpeech t1;
     private SharedPreferences prefs;
 
+    private int hopLimit = 3;
+    private int channel = 0;
 
     protected MeshtasticDropDownReceiver(final MapView mapView, final Context context) {
         super(mapView);
@@ -97,6 +105,65 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
                     speechService = null;
                 }
                 voiceMemoBtn.setText("Voice Memo");
+            }
+        });
+/*
+Config: device {
+    '-->  role: TAK
+    '-->  serial_enabled: true
+    '-->  node_info_broadcast_secs: 86400
+    '-->}
+    '-->position {
+    '-->  position_broadcast_secs: 86400
+    '-->  gps_update_interval: 120
+    '-->  position_flags: 777
+    '-->  broadcast_smart_minimum_distance: 100
+    '-->  broadcast_smart_minimum_interval_secs: 30
+    '-->  gps_mode: NOT_PRESENT
+    '-->}
+    '-->power {
+    '-->  wait_bluetooth_secs: 60
+    '-->  sds_secs: 4294967295
+    '-->  ls_secs: 300
+    '-->  min_wake_secs: 10
+    '-->}
+    '-->network {
+    '-->  ntp_server: "0.pool.ntp.org"
+    '-->}
+    '-->display {
+    '-->  screen_on_secs: 600
+    '-->}
+    '-->lora {
+    '-->  use_preset: true
+    '-->  modem_preset: MEDIUM_FAST
+    '-->  region: US
+    '-->  hop_limit: 3
+    '-->  tx_enabled: true
+    '-->  tx_power: 30
+    '-->  override_duty_cycle: true
+    '-->  sx126x_rx_boosted_gain: true
+    '-->}
+    '-->bluetooth {
+    '-->  enabled: true
+    '-->  fixed_pin: 123456
+    '-->}
+    '-->
+
+ */
+        configBtn = mainView.findViewById(R.id.configBtn);
+        configBtn.setOnClickListener(v -> {
+
+            try {
+                byte[] config = MeshtasticMapComponent.getConfig();
+                Log.d(TAG, "Config Size: " + config.length);
+                LocalOnlyProtos.LocalConfig c = LocalOnlyProtos.LocalConfig.parseFrom(config);
+                Log.d(TAG, "Config: " + c.toString());
+                ConfigProtos.Config.DeviceConfig dc = c.getDevice();
+                ConfigProtos.Config.LoRaConfig lc = c.getLora();
+
+
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
             }
         });
 
@@ -314,8 +381,13 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
         Log.d(TAG, "Sending: " + tak_packet.build().toString());
 
         ByteString payload = ByteString.copyFrom(converted.getBytes());
+        hopLimit = prefs.getInt("plugin_meshtastic_hoplimit", 3);
+        if (hopLimit > 8) {
+            hopLimit = 8;
+        }
+        channel = prefs.getInt("plugin_meshtastic_channel", 0);
 
-        DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, MeshProtos.Data.newBuilder().setPayload(payload).build().toByteArray(),Portnums.PortNum.TEXT_MESSAGE_APP_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, 0);
+        DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, MeshProtos.Data.newBuilder().setPayload(payload).build().toByteArray(),Portnums.PortNum.TEXT_MESSAGE_APP_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
         MeshtasticMapComponent.sendToMesh(dp);
     }
 

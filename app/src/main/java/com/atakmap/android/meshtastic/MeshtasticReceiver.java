@@ -1,42 +1,101 @@
 package com.atakmap.android.meshtastic;
 
+import static android.content.Context.NOTIFICATION_SERVICE;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 
 import android.content.SharedPreferences;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 
+import androidx.core.app.NotificationCompat;
+
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
+import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
+import com.atakmap.coremap.filesystem.FileSystemUtils;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.maps.time.CoordinatedTime;
 
 import com.geeksville.mesh.ATAKProtos;
+import com.geeksville.mesh.AppOnlyProtos;
+import com.geeksville.mesh.ChannelProtos;
+import com.geeksville.mesh.ConfigProtos;
 import com.geeksville.mesh.DataPacket;
 
+import com.geeksville.mesh.LocalOnlyProtos;
+import com.geeksville.mesh.MeshProtos;
+import com.geeksville.mesh.MeshUser;
 import com.geeksville.mesh.MessageStatus;
+import com.geeksville.mesh.MyNodeInfo;
 import com.geeksville.mesh.NodeInfo;
 import com.geeksville.mesh.Portnums;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
     private final String TAG = "MeshtasticReceiver";
     private SharedPreferences prefs;
-
+    private int oldModemPreset;
+    private String sender;
+    private static NotificationManager mNotifyManager;
+    private static NotificationCompat.Builder mBuilder;
+    private static NotificationChannel mChannel;
+    private static int id = 42069;
     @Override
     public void onReceive(Context context, Intent intent) {
+
+        if (mNotifyManager == null) {
+            mNotifyManager =
+                    (NotificationManager) MapView.getMapView().getContext()
+                            .getSystemService(NOTIFICATION_SERVICE);
+            mChannel = new NotificationChannel(
+                    "com.atakmap.android.meshtastic",
+                    "Meshtastic Notifications",
+                    NotificationManager.IMPORTANCE_DEFAULT); // correct Constant
+            mChannel.setSound(null, null);
+            mNotifyManager.createNotificationChannel(mChannel);
+
+            Intent atakFrontIntent = new Intent();
+            atakFrontIntent.setComponent(new ComponentName(
+                    "com.atakmap.app.civ", "com.atakmap.app.ATAKActivity"));
+            atakFrontIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            atakFrontIntent.putExtra("internalIntent",
+                    new Intent("com.atakmap.android.meshtastic.SHOW_PLUGIN"));
+            PendingIntent appIntent = PendingIntent.getActivity(MapView.getMapView().getContext(), 0, atakFrontIntent, PendingIntent.FLAG_IMMUTABLE);
+
+            mBuilder = new NotificationCompat.Builder(context, "com.atakmap.android.meshtastic");
+            mBuilder.setContentTitle("Meshtastic File Transfer")
+                    .setContentText("Transfer in progress")
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setAutoCancel(true)
+                    .setOngoing(false)
+                    .setContentIntent(appIntent);
+        }
+
         prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
         String action = intent.getAction();
         if (action == null) return;
@@ -48,6 +107,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Received ACTION_MESH_CONNECTED: " + extraConnected);
                 if (connected) {
                     try {
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putBoolean("plugin_meshtastic_shortfast", false);
+                        editor.apply();
                         boolean ret = MeshtasticMapComponent.reconnect();
                         if (ret) {
                             MeshtasticMapComponent.mConnectionState = MeshtasticMapComponent.ServiceConnectionState.CONNECTED;
@@ -80,10 +142,34 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);
                 MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);
                 Log.d(TAG, "Message Status ID: " + id + " Status: " + status);
+                if (prefs.getInt("plugin_meshtastic_message_id", 0) == id && status == MessageStatus.DELIVERED) {
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("plugin_meshtastic_switch_ACK", false);
+                    editor.apply();
+                    Log.d(TAG, "Got ACK from Switch");
+                } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.DELIVERED) {
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("plugin_meshtastic_chunk_ACK", false);
+                    editor.putBoolean("plugin_meshtastic_chunk_ERR", false);
+                    editor.apply();
+                    Log.d(TAG, "Got ACK from Chunk");
+                } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.ERROR) {
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
+                    editor.apply();
+                    Log.d(TAG, "Got ERROR from File");
+                }
                 break;
             case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER:
             case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_PLUGIN: {
-                Thread thread = new Thread(() -> receive(intent));
+                Thread thread = new Thread(() -> {
+                    try {
+                        receive(intent);
+                    } catch (InvalidProtocolBufferException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                });
                 thread.setName("MeshtasticReceiver.Worker");
                 thread.start();
                 break;
@@ -99,24 +185,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
                     MeshtasticDropDownReceiver.t1.speak(message, TextToSpeech.QUEUE_FLUSH, null);
                 }
-/*
-                String longName = null;
-                List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
-                if (nodes == null) {Log.d(TAG, "nodes was null"); return;}
-                for (NodeInfo ni : nodes) {
-                    if (ni == null) continue;
-                    Log.d(TAG, ni.toString());
-                    if (ni.getUser() == null) continue;
-                    if (ni.getUser().getId() == null) continue;
-                    if (ni.getUser().getId().equals(payload.getFrom())) {
-                        Log.d(TAG, "Found NodeInfo: " + ni);
-                        longName = ni.getUser().getLongName();
-                        break;
-                    }
-                }
 
-                if (longName == null) return;
-*/
                 String myNodeID = MeshtasticMapComponent.getMyNodeID();
                 if (myNodeID == null) return;
 
@@ -261,18 +330,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                 Log.d(TAG, ni.toString());
 
-                /*
-                List<NodeInfo> nodes = MeshtasticMapComponent.getNodes();
-                if (nodes == null) {
-                    Log.d(TAG, "nodes was null");
-                } else {
-                    for (NodeInfo nodeInfo : nodes) {
-                        if (nodeInfo == null) continue;
-                        Log.d(TAG, nodeInfo.toString());
-                    }
-                }
-                */
-
                 String myId = MeshtasticMapComponent.getMyNodeID();
                 if (myId == null) {
                     Log.d(TAG, "myId was null");
@@ -404,7 +461,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
     List<byte[]> chunks = new ArrayList<>();
     boolean chunking = false;
     int cotSize = 0;
-    protected void receive(Intent intent) {
+    protected void receive(Intent intent) throws InvalidProtocolBufferException {
         DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
         if (payload == null) return;
         int dataType = payload.getDataType();
@@ -412,14 +469,81 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
-            if (message.startsWith("CHUNK")) {
+            if (message.startsWith("SWT") && prefs.getBoolean("plugin_meshtastic_switch", false)) {
+                Log.d(TAG, "Received Switch message");
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putBoolean("plugin_meshtastic_file_transfer", true);
+                editor.apply();
+
+                sender = payload.getFrom();
+
+                new Thread(() -> {
+                    try {
+
+                        Thread.sleep(6000);
+
+                        byte[] config;
+                        config = MeshtasticMapComponent.getConfig();
+
+                        // capture old config
+                        LocalOnlyProtos.LocalConfig c = null;
+                        try {
+                            c = LocalOnlyProtos.LocalConfig.parseFrom(config);
+                        } catch (InvalidProtocolBufferException e) {
+                            Log.d(TAG, "Failed to process Switch packet");
+                            e.printStackTrace();
+                            return;
+                        }
+
+                        Log.d(TAG, "Config: " + c.toString());
+                        ConfigProtos.Config.DeviceConfig dc = c.getDevice();
+                        ConfigProtos.Config.LoRaConfig lc = c.getLora();
+                        oldModemPreset = lc.getModemPreset().getNumber();
+
+                        // set short/fast for file transfer
+                        ConfigProtos.Config.Builder configBuilder = ConfigProtos.Config.newBuilder();
+                        AtomicReference<ConfigProtos.Config.LoRaConfig.Builder> loRaConfigBuilder = new AtomicReference<>(lc.toBuilder());
+                        AtomicReference<ConfigProtos.Config.LoRaConfig.ModemPreset> modemPreset = new AtomicReference<>(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE));
+                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                        configBuilder.setLora(loRaConfigBuilder.get());
+                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+
+                        editor.putBoolean("plugin_meshtastic_shortfast", true);
+                        editor.apply();
+
+                        // wait for file transfer to finish
+                        while(prefs.getBoolean("plugin_meshtastic_file_transfer", false))
+                            Thread.sleep(10000);
+
+                        // restore config
+                        loRaConfigBuilder.set(lc.toBuilder());
+                        modemPreset.set(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(oldModemPreset));
+                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                        configBuilder.setLora(loRaConfigBuilder.get());
+                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+
+                        // file transfer is over
+                        editor.putBoolean("plugin_meshtastic_file_transfer", false);
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+
+            } else if (message.startsWith("MFT")) {
+                // sender side, recv file transfer over
+                Log.d(TAG, "Received File message completed");
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putBoolean("plugin_meshtastic_file_transfer", false);
+                editor.apply();
+            } else if (message.startsWith("CHK")) {
                 Log.d(TAG, "Received Chunked message");
                 chunking = true;
                 if (cotSize == 0) {
                     cotSize = Integer.parseInt(message.split("_")[1]);
-                    Log.d(TAG, "Chunk CoT size: " + cotSize);
+                    Log.d(TAG, "Chunk size: " + cotSize);
                 }
-                int chunk_hdr_size = String.format(Locale.US, "CHUNK_%d_", cotSize).getBytes().length;
+                int chunk_hdr_size = String.format(Locale.US, "CHK_%d_", cotSize).getBytes().length;
                 byte[] chunk = new byte[payload.getBytes().length - chunk_hdr_size];
                 try {
                     System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
@@ -428,6 +552,14 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     Log.d(TAG, "Failed to copy first chunk");
                 }
                 chunks.add(chunk);
+
+                if(prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
+                    // caclulate progress
+                    //zi = (xi – min(x)) / (max(x) – min(x)) * 100
+                    mBuilder.setProgress(100, (int) Math.floor((chunks.size() - 1) / (cotSize - 1) * 100), false);
+                    mNotifyManager.notify(id, mBuilder.build());
+                }
+
 
             } else if (message.startsWith("END") && chunking) {
                 Log.d(TAG, "Chunking");
@@ -449,6 +581,39 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 chunking = false;
                 chunks.clear();
 
+                // this was a file transfer not libcotshrink
+                if (prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
+                    Log.d(TAG, "File Received");
+
+                    mBuilder.setContentText("Transfer complete")
+                            // Removes the progress bar
+                            .setProgress(0,0,false);
+                    mNotifyManager.notify(id, mBuilder.build());
+
+                    try {
+                        String path = String.format(Locale.US, "%s/%s/%s.zip", Environment.getExternalStorageDirectory().getAbsolutePath(), "atak/tools/datapackage", UUID.randomUUID().toString());
+                        Log.d(TAG, "Writing to: " + path);
+                        Files.write(new File(path).toPath(), combined);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    // inform sender we're done recv
+                    DataPacket dp = new DataPacket(sender, new byte[]{'M', 'F', 'T'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, prefs.getInt("plugin_meshtastic_channel", 0));
+                    MeshtasticMapComponent.sendToMesh(dp);
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        Log.d(TAG, "MFT interrupted");
+                    }
+
+                    //receive side, file transfer over
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("plugin_meshtastic_file_transfer", false);
+                    editor.apply();
+                    return;
+                }
                 try {
                     CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
                     if (cotEvent != null && cotEvent.isValid()) {
@@ -463,7 +628,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
-
             } else {
                 try {
 
@@ -477,7 +641,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
-
             }
         } else if (dataType == 72) {
             Log.d(TAG, "Got TAK_PACKET");

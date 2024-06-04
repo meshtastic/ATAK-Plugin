@@ -3,7 +3,9 @@
     package="com.atakmap.android.meshtastic.plugin"
     tools:ignore="GoogleAppIndexingWarning">
 
-    <application 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
@@ -21,7 +23,6 @@
               <action android:name="com.atakmap.app.component" />
            </intent-filter>
        </activity>
-
 
     </application>
     <queries>
