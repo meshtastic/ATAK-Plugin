@@ -15,6 +15,7 @@ import android.os.Environment;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
+import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
@@ -52,12 +53,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
     private final String TAG = "MeshtasticReceiver";
     private SharedPreferences prefs;
+    private SharedPreferences.Editor editor;
+
     private int oldModemPreset;
     private String sender;
     private static NotificationManager mNotifyManager;
@@ -97,6 +101,8 @@ public class MeshtasticReceiver extends BroadcastReceiver {
         }
 
         prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
+        editor = prefs.edit();
+
         String action = intent.getAction();
         if (action == null) return;
         Log.d(TAG, "ACTION: " + action);
@@ -142,22 +148,33 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 int id = intent.getIntExtra(MeshtasticMapComponent.EXTRA_PACKET_ID, 0);
                 MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);
                 Log.d(TAG, "Message Status ID: " + id + " Status: " + status);
-                if (prefs.getInt("plugin_meshtastic_message_id", 0) == id && status == MessageStatus.DELIVERED) {
+                if (prefs.getInt("plugin_meshtastic_switch_id", 0) == id && status == MessageStatus.DELIVERED) {
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.putBoolean("plugin_meshtastic_switch_ACK", false);
                     editor.apply();
                     Log.d(TAG, "Got ACK from Switch");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.DELIVERED) {
                     SharedPreferences.Editor editor = prefs.edit();
+                    // clear the ACK/ERR for the chunk
                     editor.putBoolean("plugin_meshtastic_chunk_ACK", false);
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", false);
                     editor.apply();
                     Log.d(TAG, "Got ACK from Chunk");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.ERROR) {
-                    SharedPreferences.Editor editor = prefs.edit();
+                    Log.d(TAG, "Got ERROR from File");
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
                     editor.apply();
-                    Log.d(TAG, "Got ERROR from File");
+                    /*
+                    // save the info to retransmit the failed packet only to the node that failed
+                    DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
+                    if (payload == null) {
+                        Log.d(TAG,"Payload is null");
+                        return;
+                    }
+                    String nodeID = payload.getFrom();
+                    editor.putString("plugin_meshtastic_node_ERR", nodeID +","+ id);
+                    editor.apply();
+                    */
                 }
                 break;
             case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER:
@@ -467,63 +484,87 @@ public class MeshtasticReceiver extends BroadcastReceiver {
         int dataType = payload.getDataType();
         Log.v(TAG, "handleReceive(), dataType: " + dataType);
 
+        SharedPreferences.Editor editor = prefs.edit();
+
+
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
             if (message.startsWith("SWT") && prefs.getBoolean("plugin_meshtastic_switch", false)) {
                 Log.d(TAG, "Received Switch message");
-                SharedPreferences.Editor editor = prefs.edit();
+
+                // flag to indicate we're in file transfer mode
                 editor.putBoolean("plugin_meshtastic_file_transfer", true);
                 editor.apply();
 
                 sender = payload.getFrom();
 
+                byte[] config;
+                config = MeshtasticMapComponent.getConfig();
+
+                // capture old config
+                LocalOnlyProtos.LocalConfig c = null;
+                try {
+                    c = LocalOnlyProtos.LocalConfig.parseFrom(config);
+                } catch (InvalidProtocolBufferException e) {
+                    Log.d(TAG, "Failed to process Switch packet");
+                    e.printStackTrace();
+                    return;
+                }
+
+                Log.d(TAG, "Config: " + c.toString());
+                ConfigProtos.Config.DeviceConfig dc = c.getDevice();
+                ConfigProtos.Config.LoRaConfig lc = c.getLora();
+                oldModemPreset = lc.getModemPreset().getNumber();
+
+                // set short/fast for file transfer
+                ConfigProtos.Config.Builder configBuilder = ConfigProtos.Config.newBuilder();
+                AtomicReference<ConfigProtos.Config.LoRaConfig.Builder> loRaConfigBuilder = new AtomicReference<>(lc.toBuilder());
+                AtomicReference<ConfigProtos.Config.LoRaConfig.ModemPreset> modemPreset = new AtomicReference<>(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE));
+                loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                configBuilder.setLora(loRaConfigBuilder.get());
+                boolean needReboot;
+
+                // if not already in short/fast mode, switch to it
+                if (oldModemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE) {
+                    Toast.makeText(MapView.getMapView().getContext(), "Rebooting to Short/Fast for file transfer", Toast.LENGTH_LONG).show();
+                    needReboot = true;
+                } else {
+                    needReboot = false;
+                }
+
+                SharedPreferences.Editor finalEditor = editor;
                 new Thread(() -> {
                     try {
+                        // hopefully enough time to ACK the SWT command
+                        Thread.sleep(2000);
 
-                        Thread.sleep(6000);
-
-                        byte[] config;
-                        config = MeshtasticMapComponent.getConfig();
-
-                        // capture old config
-                        LocalOnlyProtos.LocalConfig c = null;
-                        try {
-                            c = LocalOnlyProtos.LocalConfig.parseFrom(config);
-                        } catch (InvalidProtocolBufferException e) {
-                            Log.d(TAG, "Failed to process Switch packet");
-                            e.printStackTrace();
-                            return;
+                        // we gotta wait for ourselves to reboot to short/fast
+                        if (needReboot) {
+                            try {
+                                // flag to indicate we are rebooting into short/fast
+                                finalEditor.putBoolean("plugin_meshtastic_shortfast", true);
+                                finalEditor.apply();
+                                MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+                                // wait for ourselves to switch to short/fast
+                                while (prefs.getBoolean("plugin_meshtastic_shortfast", false))
+                                    Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
-
-                        Log.d(TAG, "Config: " + c.toString());
-                        ConfigProtos.Config.DeviceConfig dc = c.getDevice();
-                        ConfigProtos.Config.LoRaConfig lc = c.getLora();
-                        oldModemPreset = lc.getModemPreset().getNumber();
-
-                        // set short/fast for file transfer
-                        ConfigProtos.Config.Builder configBuilder = ConfigProtos.Config.newBuilder();
-                        AtomicReference<ConfigProtos.Config.LoRaConfig.Builder> loRaConfigBuilder = new AtomicReference<>(lc.toBuilder());
-                        AtomicReference<ConfigProtos.Config.LoRaConfig.ModemPreset> modemPreset = new AtomicReference<>(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE));
-                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
-                        configBuilder.setLora(loRaConfigBuilder.get());
-                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
-
-                        editor.putBoolean("plugin_meshtastic_shortfast", true);
-                        editor.apply();
 
                         // wait for file transfer to finish
                         while(prefs.getBoolean("plugin_meshtastic_file_transfer", false))
                             Thread.sleep(10000);
 
-                        // restore config
-                        loRaConfigBuilder.set(lc.toBuilder());
-                        modemPreset.set(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(oldModemPreset));
-                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
-                        configBuilder.setLora(loRaConfigBuilder.get());
-                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
-
-                        // file transfer is over
-                        editor.putBoolean("plugin_meshtastic_file_transfer", false);
+                        if (needReboot) {
+                            // restore config
+                            loRaConfigBuilder.set(lc.toBuilder());
+                            modemPreset.set(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(oldModemPreset));
+                            loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                            configBuilder.setLora(loRaConfigBuilder.get());
+                            MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+                        }
 
                     } catch (InterruptedException e) {
                         e.printStackTrace();
@@ -533,7 +574,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             } else if (message.startsWith("MFT")) {
                 // sender side, recv file transfer over
                 Log.d(TAG, "Received File message completed");
-                SharedPreferences.Editor editor = prefs.edit();
+                editor = prefs.edit();
                 editor.putBoolean("plugin_meshtastic_file_transfer", false);
                 editor.apply();
             } else if (message.startsWith("CHK")) {
@@ -559,8 +600,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     mBuilder.setProgress(100, (int) Math.floor((chunks.size() - 1) / (cotSize - 1) * 100), false);
                     mNotifyManager.notify(id, mBuilder.build());
                 }
-
-
             } else if (message.startsWith("END") && chunking) {
                 Log.d(TAG, "Chunking");
                 byte[] combined = new byte[cotSize];
@@ -609,7 +648,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     }
 
                     //receive side, file transfer over
-                    SharedPreferences.Editor editor = prefs.edit();
+                    editor = prefs.edit();
                     editor.putBoolean("plugin_meshtastic_file_transfer", false);
                     editor.apply();
                     return;

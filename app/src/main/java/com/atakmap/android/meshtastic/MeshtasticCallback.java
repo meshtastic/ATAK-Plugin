@@ -33,6 +33,9 @@ public class MeshtasticCallback implements SaveAndSendCallback {
         File file = new File(missionPackageManifest.getPath());
         Log.d(TAG, file.getAbsolutePath());
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
+        SharedPreferences.Editor editor = prefs.edit();
+
         if (FileSystemUtils.isFile(file)) {
             // check file size
             if (FileSystemUtils.getFileSize(file) > 1024 * 56) {
@@ -40,84 +43,118 @@ public class MeshtasticCallback implements SaveAndSendCallback {
                 return;
             } else {
                 Log.d(TAG, "File is small enough to send: " + FileSystemUtils.getFileSize(file));
-                Toast.makeText(MapView.getMapView().getContext(), "Switching to Short/Fast for file transfer", Toast.LENGTH_LONG).show();
-                Log.d(TAG, "Broadcasting switch command");
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
-                SharedPreferences.Editor editor = prefs.edit();
+
+                // flag to indicate we are in a file transfer mode
                 editor.putBoolean("plugin_meshtastic_file_transfer", true);
-                editor.putBoolean("plugin_meshtastic_switch_ACK", true);
-                int channel = prefs.getInt("plugin_meshtastic_channel", 0);
-                int messageId = ThreadLocalRandom.current().nextInt(0x10000000, 0x7fffff00);
-                Log.d(TAG, "Message ID: " + messageId);
-                editor.putInt("plugin_meshtastic_message_id", messageId);
                 editor.apply();
 
-                DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'S', 'W', 'T'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), messageId, MessageStatus.UNKNOWN, 3, channel);
-                MeshtasticMapComponent.sendToMesh(dp);
+                // capture node's config
+                byte[] config = MeshtasticMapComponent.getConfig();
+                Log.d(TAG, "Config Size: " + config.length);
+                LocalOnlyProtos.LocalConfig c;
+                try {
+                    c = LocalOnlyProtos.LocalConfig.parseFrom(config);
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
+                Log.d(TAG, "Config: " + c.toString());
+                ConfigProtos.Config.LoRaConfig lc = c.getLora();
+
+                // retain old modem preset
+                int oldModemPreset = lc.getModemPreset().getNumber();
+
+                // configure short/fast mode
+                ConfigProtos.Config.Builder configBuilder = ConfigProtos.Config.newBuilder();
+                AtomicReference<ConfigProtos.Config.LoRaConfig.Builder> loRaConfigBuilder = new AtomicReference<>(lc.toBuilder());
+                AtomicReference<ConfigProtos.Config.LoRaConfig.ModemPreset> modemPreset = new AtomicReference<>(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE));
+                loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                configBuilder.setLora(loRaConfigBuilder.get());
+                boolean needReboot;
+
+                // if not already in short/fast mode, switch to it
+                if (oldModemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE) {
+                    Toast.makeText(MapView.getMapView().getContext(), "Rebooting to Short/Fast for file transfer", Toast.LENGTH_LONG).show();
+                    needReboot = true;
+                } else {
+                    needReboot = false;
+                }
 
                 new Thread(() -> {
-                    try {
-                        while (prefs.getBoolean("plugin_meshtastic_switch_ACK", false)) {
-                            try {
-                                Thread.sleep(1000);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+
+                    // send out file transfer command
+                    int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+                    int messageId = ThreadLocalRandom.current().nextInt(0x10000000, 0x7fffff00);
+                    Log.d(TAG, "Switch Message ID: " + messageId);
+                    editor.putInt("plugin_meshtastic_switch_id", messageId);
+
+                    // flag to indicate we are waiting for remote nodes to ACK our SWT command
+                    editor.putBoolean("plugin_meshtastic_switch_ACK", true);
+                    editor.apply();
+
+                    Log.d(TAG, "Broadcasting switch command");
+                    DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'S', 'W', 'T'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), messageId, MessageStatus.UNKNOWN, 3, channel);
+                    MeshtasticMapComponent.sendToMesh(dp);
+
+                    // wait for the remote nodes to ACK our switch command
+                    while (prefs.getBoolean("plugin_meshtastic_switch_ACK", false)) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    // we gotta reboot to short/fast
+                    if (needReboot) {
+                        // give the remote nodes a little extra time to reboot
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
                         }
 
-                        // give the remote node time to reboot
-                        Thread.sleep(2000);
+                        try {
+                            // flag to indicate we are waiting for a reboot into short/fast
+                            editor.putBoolean("plugin_meshtastic_shortfast", true);
+                            editor.apply();
 
-                        //capture local config
-                        byte[] config = MeshtasticMapComponent.getConfig();
-                        Log.d(TAG, "Config Size: " + config.length);
-                        LocalOnlyProtos.LocalConfig c = LocalOnlyProtos.LocalConfig.parseFrom(config);
-                        Log.d(TAG, "Config: " + c.toString());
-                        ConfigProtos.Config.LoRaConfig lc = c.getLora();
+                            MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
 
-                        int oldModemPreset = lc.getModemPreset().getNumber();
+                            // wait for ourselves to switch to short/fast
+                            while (prefs.getBoolean("plugin_meshtastic_shortfast", false))
+                                Thread.sleep(1000);
 
-                        // set short/fast for file transfer
-                        ConfigProtos.Config.Builder configBuilder = ConfigProtos.Config.newBuilder();
-                        AtomicReference<ConfigProtos.Config.LoRaConfig.Builder> loRaConfigBuilder = new AtomicReference<>(lc.toBuilder());
-                        AtomicReference<ConfigProtos.Config.LoRaConfig.ModemPreset> modemPreset = new AtomicReference<>(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE));
-                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
-                        configBuilder.setLora(loRaConfigBuilder.get());
-                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
 
-                        editor.putBoolean("plugin_meshtastic_shortfast", true);
-                        editor.apply();
-
-                        // wait for ourselves to switch to short/fast
-                        while(prefs.getBoolean("plugin_meshtastic_shortfast", false))
-                            Thread.sleep(1000);
-
-                        // the device has rebooted, send the file
+                    try {
+                        // ready to send file
                         if (MeshtasticMapComponent.sendFile(file)) {
                             Log.d(TAG, "File sent successfully");
+
                             // wait for at least one ACK from a recipient
-                            while(prefs.getBoolean("plugin_meshtastic_file_transfer", false))
-                                    Thread.sleep(1000);
+                            while (prefs.getBoolean("plugin_meshtastic_file_transfer", false))
+                                Thread.sleep(1000);
                         } else {
                             Log.d(TAG, "File send failed");
                         }
 
-                        // restore config
-                        Log.d(TAG, "Restoring previous modem preset");
-                        loRaConfigBuilder.set(lc.toBuilder());
-                        modemPreset.set(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(oldModemPreset));
-                        loRaConfigBuilder.get().setModemPreset(modemPreset.get());
-                        configBuilder.setLora(loRaConfigBuilder.get());
-                        MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+                        if (needReboot) {
+                            // restore config
+                            Log.d(TAG, "Restoring previous modem preset");
+                            loRaConfigBuilder.set(lc.toBuilder());
+                            modemPreset.set(ConfigProtos.Config.LoRaConfig.ModemPreset.forNumber(oldModemPreset));
+                            loRaConfigBuilder.get().setModemPreset(modemPreset.get());
+                            configBuilder.setLora(loRaConfigBuilder.get());
+                            MeshtasticMapComponent.setConfig(configBuilder.build().toByteArray());
+                        }
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (InvalidProtocolBufferException e) {
                         e.printStackTrace();
                     }
                 }).start();
-
             }
-
         } else {
             Log.d(TAG, "Invalid file");
         }

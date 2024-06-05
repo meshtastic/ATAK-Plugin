@@ -60,6 +60,7 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
@@ -110,7 +111,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
     private static NotificationManager mNotifyManager;
     private static NotificationCompat.Builder mBuilder;
     private static NotificationChannel mChannel;
-    private static int id = 42069;
+    private static int NotificationId = 42069;
 
     public static void sendToMesh(DataPacket dp) {
         try {
@@ -159,6 +160,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         byte[] chunk_hdr = String.format(Locale.US, "CHK_%d_", fileBytes.length).getBytes();
         int i = 0;
 
+        HashMap<String, byte[]> chunkMap = new HashMap<>();
+        OUTER:
         for (byte[] c : chunkList) {
             byte[] combined = new byte[chunk_hdr.length + c.length];
             try {
@@ -173,19 +176,34 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 DataPacket dp;
                 i = ThreadLocalRandom.current().nextInt(0x10000000, 0x7fffff00);
                 Log.d(TAG, "Chunk ID: " + i);
+                chunkMap.put(String.valueOf(i), combined);
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putInt("plugin_meshtastic_chunk_id", i);
                 editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
                 editor.apply();
+                String nodeID = "";
+                String id = "";
                 INNER:
                 for (int j=0; j<1; j++) {
-                    dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
+                    if (nodeID.isEmpty()) {
+                        // no errors yet
+                        dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
+                    } else {
+                        // nodeID had an error, retransmit
+                        dp = new DataPacket(nodeID, chunkMap.get(Integer.valueOf(id)), Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
+                        nodeID = "";
+                        editor.putString("plugin_meshtastic_node_ERR", nodeID);
+                    }
                     mMeshService.send(dp);
                     while (prefs.getBoolean("plugin_meshtastic_chunk_ACK", false)) {
                         try {
                             Thread.sleep(500);
                             if (prefs.getBoolean("plugin_meshtastic_chunk_ERR", false)) {
-                                Log.d(TAG, "Chunk ERR received, retransmitting:" + i);
+                                /*
+                                nodeID = prefs.getString("plugin_meshtastic_node_ERR", "").split(",")[0];
+                                id = prefs.getString("plugin_meshtastic_node_ERR", "").split(",")[1];
+                                Log.d(TAG, "Chunk ERR received, retransmitting:" + i + " to node: " + nodeID);
+                                */
                                 j=0;
                                 break INNER;
                             }
@@ -198,7 +216,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 // caclulate progress
                 //zi = (xi – min(x)) / (max(x) – min(x)) * 100
                 mBuilder.setProgress(100, (int) Math.floor((++progress - 1) / (chunkList.size() - 1) * 100), false);
-                mNotifyManager.notify(id, mBuilder.build());
+                mNotifyManager.notify(NotificationId, mBuilder.build());
             } catch (RemoteException e) {
                 e.printStackTrace();
                 return false;
@@ -208,7 +226,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         mBuilder.setContentText("Transfer complete")
                 // Removes the progress bar
                 .setProgress(0,0,false);
-        mNotifyManager.notify(id, mBuilder.build());
+        mNotifyManager.notify(NotificationId, mBuilder.build());
 
         try {
             // We're done chunking
