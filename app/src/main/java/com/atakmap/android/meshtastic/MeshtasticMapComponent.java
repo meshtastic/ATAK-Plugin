@@ -161,7 +161,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         int i = 0;
 
         HashMap<String, byte[]> chunkMap = new HashMap<>();
-        OUTER:
         for (byte[] c : chunkList) {
             byte[] combined = new byte[chunk_hdr.length + c.length];
             try {
@@ -181,29 +180,16 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 editor.putInt("plugin_meshtastic_chunk_id", i);
                 editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
                 editor.apply();
-                String nodeID = "";
-                String id = "";
+
                 INNER:
                 for (int j=0; j<1; j++) {
-                    if (nodeID.isEmpty()) {
-                        // no errors yet
-                        dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
-                    } else {
-                        // nodeID had an error, retransmit
-                        dp = new DataPacket(nodeID, chunkMap.get(Integer.valueOf(id)), Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
-                        nodeID = "";
-                        editor.putString("plugin_meshtastic_node_ERR", nodeID);
-                    }
+                    dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
                     mMeshService.send(dp);
                     while (prefs.getBoolean("plugin_meshtastic_chunk_ACK", false)) {
                         try {
                             Thread.sleep(500);
                             if (prefs.getBoolean("plugin_meshtastic_chunk_ERR", false)) {
-                                /*
-                                nodeID = prefs.getString("plugin_meshtastic_node_ERR", "").split(",")[0];
-                                id = prefs.getString("plugin_meshtastic_node_ERR", "").split(",")[1];
-                                Log.d(TAG, "Chunk ERR received, retransmitting:" + i + " to node: " + nodeID);
-                                */
+                                Log.d(TAG, "Chunk ERR received, retransmitting message ID: " + i);
                                 j=0;
                                 break INNER;
                             }

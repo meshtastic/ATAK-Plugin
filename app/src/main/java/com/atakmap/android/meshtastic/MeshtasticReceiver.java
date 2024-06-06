@@ -50,6 +50,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -164,17 +165,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     Log.d(TAG, "Got ERROR from File");
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
                     editor.apply();
-                    /*
-                    // save the info to retransmit the failed packet only to the node that failed
-                    DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
-                    if (payload == null) {
-                        Log.d(TAG,"Payload is null");
-                        return;
-                    }
-                    String nodeID = payload.getFrom();
-                    editor.putString("plugin_meshtastic_node_ERR", nodeID +","+ id);
-                    editor.apply();
-                    */
                 }
                 break;
             case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER:
@@ -475,9 +465,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 break;
         }
     }
-    List<byte[]> chunks = new ArrayList<>();
+
+    HashMap<Integer, byte[]> chunkMap = new HashMap<>();
     boolean chunking = false;
-    int cotSize = 0;
+    int chunkSize = 0;
+    int chunkCount = 0;
     protected void receive(Intent intent) throws InvalidProtocolBufferException {
         DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
         if (payload == null) return;
@@ -486,9 +478,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         SharedPreferences.Editor editor = prefs.edit();
 
-
         if (dataType == Portnums.PortNum.ATAK_FORWARDER_VALUE) {
             String message = new String(payload.getBytes());
+            // user must opt-in for SWITCH message
             if (message.startsWith("SWT") && prefs.getBoolean("plugin_meshtastic_switch", false)) {
                 Log.d(TAG, "Received Switch message");
 
@@ -580,11 +572,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             } else if (message.startsWith("CHK")) {
                 Log.d(TAG, "Received Chunked message");
                 chunking = true;
-                if (cotSize == 0) {
-                    cotSize = Integer.parseInt(message.split("_")[1]);
-                    Log.d(TAG, "Chunk size: " + cotSize);
+                if (chunkSize == 0) {
+                    chunkSize = Integer.parseInt(message.split("_")[1]);
+                    Log.d(TAG, "Chunk size: " + chunkSize);
                 }
-                int chunk_hdr_size = String.format(Locale.US, "CHK_%d_", cotSize).getBytes().length;
+                int chunk_hdr_size = String.format(Locale.US, "CHK_%d_", chunkSize).getBytes().length;
                 byte[] chunk = new byte[payload.getBytes().length - chunk_hdr_size];
                 try {
                     System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
@@ -592,20 +584,27 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     e.printStackTrace();
                     Log.d(TAG, "Failed to copy first chunk");
                 }
-                chunks.add(chunk);
+
+                // check if this chunk has already been received
+                if (chunkMap.containsValue(chunk)) {
+                    Log.d(TAG, "Chunk already received");
+                    return;
+                } else {
+                    chunkMap.put(Integer.valueOf(chunkCount++), chunk);
+                }
 
                 if(prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
                     // caclulate progress
                     //zi = (xi – min(x)) / (max(x) – min(x)) * 100
-                    mBuilder.setProgress(100, (int) Math.floor((chunks.size() - 1) / (cotSize - 1) * 100), false);
+                    mBuilder.setProgress(100, (int) Math.floor((chunkMap.size() - 1) / (chunkSize - 1) * 100), false);
                     mNotifyManager.notify(id, mBuilder.build());
                 }
             } else if (message.startsWith("END") && chunking) {
                 Log.d(TAG, "Chunking");
-                byte[] combined = new byte[cotSize];
+                byte[] combined = new byte[chunkSize];
 
                 int i = 0;
-                for (byte[] b : chunks) {
+                for (byte[] b : chunkMap.values()) {
                     try {
                         System.arraycopy(b, 0, combined, i, b.length);
                     } catch (Exception e) {
@@ -616,9 +615,11 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     Log.d(TAG, "" + i);
                 }
 
-                cotSize = 0;
+                // done chunking clear accounting
+                chunkSize = 0;
                 chunking = false;
-                chunks.clear();
+                chunkMap.clear();
+                chunkCount = 0;
 
                 // this was a file transfer not libcotshrink
                 if (prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
