@@ -106,12 +106,13 @@ public class MeshtasticMapComponent extends DropDownMapComponent
     public static final String ACTION_CONFIG_RATE = "com.atakmap.android.meshtastic.CONFIG";
     public static MeshtasticWidget mw;
     private MeshtasticReceiver mr;
-    private static SharedPreferences prefs;
     private MeshtasticSender meshtasticSender;
     private static NotificationManager mNotifyManager;
     private static NotificationCompat.Builder mBuilder;
     private static NotificationChannel mChannel;
     private static int NotificationId = 42069;
+    private static SharedPreferences prefs;
+    private static SharedPreferences.Editor editor;
 
     public static void sendToMesh(DataPacket dp) {
         try {
@@ -176,7 +177,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 i = ThreadLocalRandom.current().nextInt(0x10000000, 0x7fffff00);
                 Log.d(TAG, "Chunk ID: " + i);
                 chunkMap.put(String.valueOf(i), combined);
-                SharedPreferences.Editor editor = prefs.edit();
                 editor.putInt("plugin_meshtastic_chunk_id", i);
                 editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
                 editor.apply();
@@ -301,10 +301,15 @@ public class MeshtasticMapComponent extends DropDownMapComponent
     @Override
     public void processCotEvent(CotEvent cotEvent, String[] strings) {
 
-        if (mConnectionState == ServiceConnectionState.DISCONNECTED)
+        Log.d(TAG, "processCotEvent");
+
+        if (mConnectionState == ServiceConnectionState.DISCONNECTED) {
+            Log.d(TAG, "Service not connected");
             return;
-        else if (prefs.getBoolean("plugin_meshtastic_file_transfer", false))
+        } else if (prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
+            Log.d(TAG, "File transfer in progress");
             return;
+        }
 
         DataPacket dp;
 
@@ -629,7 +634,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
             chunks++;
             Log.d(TAG, "Sending " + chunks);
 
-            byte[] chunk_hdr = String.format(Locale.US, "CHUNK_%d_", cotAsBytes.length).getBytes();
+            byte[] chunk_hdr = String.format(Locale.US, "CHK_%d_", cotAsBytes.length).getBytes();
 
             for (byte[] c : chunkList) {
                 byte[] combined = new byte[chunk_hdr.length + c.length];
@@ -666,6 +671,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
 
+
         mNotifyManager =
                 (NotificationManager) view.getContext()
                         .getSystemService(NOTIFICATION_SERVICE);
@@ -699,7 +705,9 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         ddFilter.addAction(MeshtasticDropDownReceiver.SHOW_PLUGIN);
         registerDropDownReceiver(ddr, ddFilter);
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(view.getContext());
+        prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
+        editor = prefs.edit();
+        editor.putBoolean("plugin_meshtastic_file_transfer", false);
         prefs.registerOnSharedPreferenceChangeListener(this);
 
         mr = new MeshtasticReceiver();
@@ -779,7 +787,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         if (FileSystemUtils.isEquals(key, "plugin_meshtastic_rate_value")) {
             String rate = prefs.getString("plugin_meshtastic_rate_value", "0");
             Log.d(TAG, "Rate: " + rate);
-            SharedPreferences.Editor editor = prefs.edit();
             editor.putString("locationReportingStrategy", "Constant");
             editor.putString("constantReportingRateUnreliable", rate);
             editor.putString("constantReportingRateReliable", rate);

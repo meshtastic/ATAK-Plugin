@@ -2,6 +2,9 @@ package com.atakmap.android.meshtastic;
 
 import static android.content.Context.NOTIFICATION_SERVICE;
 
+import static com.atakmap.android.maps.MapView.*;
+
+import android.app.Activity;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -74,7 +77,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
         if (mNotifyManager == null) {
             mNotifyManager =
-                    (NotificationManager) MapView.getMapView().getContext()
+                    (NotificationManager) getMapView().getContext()
                             .getSystemService(NOTIFICATION_SERVICE);
             mChannel = new NotificationChannel(
                     "com.atakmap.android.meshtastic",
@@ -90,7 +93,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             atakFrontIntent.putExtra("internalIntent",
                     new Intent("com.atakmap.android.meshtastic.SHOW_PLUGIN"));
-            PendingIntent appIntent = PendingIntent.getActivity(MapView.getMapView().getContext(), 0, atakFrontIntent, PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent appIntent = PendingIntent.getActivity(getMapView().getContext(), 0, atakFrontIntent, PendingIntent.FLAG_IMMUTABLE);
 
             mBuilder = new NotificationCompat.Builder(context, "com.atakmap.android.meshtastic");
             mBuilder.setContentTitle("Meshtastic File Transfer")
@@ -101,7 +104,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     .setContentIntent(appIntent);
         }
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
+        prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
         editor = prefs.edit();
 
         String action = intent.getAction();
@@ -518,7 +521,9 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                 // if not already in short/fast mode, switch to it
                 if (oldModemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST_VALUE) {
-                    Toast.makeText(MapView.getMapView().getContext(), "Rebooting to Short/Fast for file transfer", Toast.LENGTH_LONG).show();
+                    ((Activity)MapView.getMapView().getContext()).runOnUiThread(() -> {
+                        Toast.makeText(getMapView().getContext(), "Rebooting to Short/Fast for file transfer", Toast.LENGTH_LONG).show();
+                    });
                     needReboot = true;
                 } else {
                     needReboot = false;
@@ -530,7 +535,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                         // hopefully enough time to ACK the SWT command
                         Thread.sleep(2000);
 
-                        // we gotta wait for ourselves to reboot to short/fast
+                        // we gotta reboot to short/fast
                         if (needReboot) {
                             try {
                                 // flag to indicate we are rebooting into short/fast
@@ -866,7 +871,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     } else
                         Log.e(TAG, "cotEvent was not valid");
 
-                } else if (tp.hasChat() && tp.getChat().getTo().equals(MapView.getMapView().getSelfMarker().getUID())) {
+                } else if (tp.hasChat() && tp.getChat().getTo().equals(getMapView().getSelfMarker().getUID())) {
                     /*
                     <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
                     <event version='2.0' uid='GeoChat.ANDROID-e612f0e922b56a63.ANDROID-b5c2b8340a0a2cd5.23c1f487-7111-4995-89f5-7709a9c99518' type='b-t-f' time='2024-02-07T19:04:06.683Z' start='2024-02-07T19:04:06.683Z' stale='2024-02-08T19:04:06.683Z' how='h-g-i-g-o'>
@@ -900,15 +905,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     chatDetail.setAttribute("parent", "RootContactGroup");
                     chatDetail.setAttribute("groupOwner", "false");
                     chatDetail.setAttribute("messageId", msgId);
-                    chatDetail.setAttribute("chatroom", MapView.getMapView().getDeviceCallsign());
-                    chatDetail.setAttribute("id", MapView.getMapView().getSelfMarker().getUID());
+                    chatDetail.setAttribute("chatroom", getMapView().getDeviceCallsign());
+                    chatDetail.setAttribute("id", getMapView().getSelfMarker().getUID());
                     chatDetail.setAttribute("senderCallsign", callsign);
                     cotDetail.addChild(chatDetail);
 
                     CotDetail chatgrp = new CotDetail("chatgrp");
                     chatgrp.setAttribute("uid0", deviceCallsign);
-                    chatgrp.setAttribute("uid1", MapView.getMapView().getSelfMarker().getUID());
-                    chatgrp.setAttribute("id", MapView.getMapView().getSelfMarker().getUID());
+                    chatgrp.setAttribute("uid1", getMapView().getSelfMarker().getUID());
+                    chatgrp.setAttribute("id", getMapView().getSelfMarker().getUID());
                     chatDetail.addChild(chatgrp);
 
                     CotDetail linkDetail = new CotDetail("link");
@@ -930,7 +935,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotEvent cotEvent = new CotEvent();
                     cotEvent.setDetail(cotDetail);
-                    cotEvent.setUID("GeoChat." + deviceCallsign + MapView.getMapView().getSelfMarker().getUID() + msgId);
+                    cotEvent.setUID("GeoChat." + deviceCallsign + getMapView().getSelfMarker().getUID() + msgId);
                     cotEvent.setTime(time);
                     cotEvent.setStart(time);
                     cotEvent.setStale(time.addMinutes(10));

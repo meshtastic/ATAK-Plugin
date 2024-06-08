@@ -40,6 +40,7 @@ public class MeshtasticCallback implements SaveAndSendCallback {
             // check file size
             if (FileSystemUtils.getFileSize(file) > 1024 * 56) {
                 Toast.makeText(MapView.getMapView().getContext(), "File is too large to send, 56KB Max", Toast.LENGTH_LONG).show();
+                editor.putBoolean("plugin_meshtastic_file_transfer", false);
                 return;
             } else {
                 Log.d(TAG, "File is small enough to send: " + FileSystemUtils.getFileSize(file));
