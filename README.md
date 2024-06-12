@@ -18,3 +18,7 @@ The plugin currently has the following settings:
 - Meshtastic Channel Index, this allows you to define what channel to send ATAK messages on (0 by default)
 - Meshtastic Hop Limit, this allows you to adjust the hop limit for ATAK messages (3 by default, 8 max)
 - Allow SWITCH command, this opts-in for allowing nodes to switch your node to Short/Fast for file transfers
+
+# Video Walkthrough
+
+https://www.youtube.com/watch?v=7cn4ofiSd0A
