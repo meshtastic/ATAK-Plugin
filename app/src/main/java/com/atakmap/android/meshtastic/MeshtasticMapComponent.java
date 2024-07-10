@@ -670,8 +670,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
-
-
+        
         mNotifyManager =
                 (NotificationManager) view.getContext()
                         .getSystemService(NOTIFICATION_SERVICE);

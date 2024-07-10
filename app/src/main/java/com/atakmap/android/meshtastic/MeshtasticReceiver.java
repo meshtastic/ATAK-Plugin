@@ -45,21 +45,17 @@ import com.geeksville.mesh.MessageStatus;
 import com.geeksville.mesh.MyNodeInfo;
 import com.geeksville.mesh.NodeInfo;
 import com.geeksville.mesh.Portnums;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.atakmap.android.meshtastic.plugin.*;
 
 public class MeshtasticReceiver extends BroadcastReceiver {
     private final String TAG = "MeshtasticReceiver";
@@ -317,7 +313,14 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                 }
                 break;
             case MeshtasticMapComponent.ACTION_NODE_CHANGE:
-                NodeInfo ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
+                NodeInfo ni = null;
+                try {
+                    ni = intent.getParcelableExtra("com.geeksville.mesh.NodeInfo");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return;
+                }
+
                 if (ni == null) {
                     Log.d(TAG, "NodeInfo was null");
                     return;
@@ -442,7 +445,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");
-                    takvDetail.setAttribute("version", "1.0.21" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("version", "1.0.25" + "\n----NodeInfo----\n" + ni.toString());
                     takvDetail.setAttribute("device", ni.getUser().getHwModelString());
                     takvDetail.setAttribute("os", "1");
                     cotDetail.addChild(takvDetail);

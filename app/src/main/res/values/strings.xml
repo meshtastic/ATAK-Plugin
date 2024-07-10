@@ -5,7 +5,6 @@
     <!-- description -->
     <string name="app_desc">Leverages the Meshtastic Android App IMeshService</string>
 
-
        <string name="preferences_title">Meshtastic Preferences</string>
         <string name="preferences_summary">summary</string>
         <string name="preferences_dialogTitle">title</string>

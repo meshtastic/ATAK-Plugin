@@ -9,7 +9,7 @@
 buildscript {
 
 
-    ext.PLUGIN_VERSION = "1.0.24"
+    ext.PLUGIN_VERSION = "1.0.25"
     ext.ATAK_VERSION = "4.10.0"
 
     def takdevVersion = '2.+'
@@ -190,7 +190,6 @@ android {
             defaultConfig.versionCode = getVersionCode()
             defaultConfig.versionName = PLUGIN_VERSION + " (" + getVersionName() + ") - [" + ATAK_VERSION + "]"
 
-
             proto {
                 srcDir 'src/main/protobufs'
             }
@@ -231,7 +230,6 @@ dependencies {
     implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'com.alphacephei:vosk-android:0.3.47@aar'
     implementation project(':models')
-
 }
 
 protobuf {
