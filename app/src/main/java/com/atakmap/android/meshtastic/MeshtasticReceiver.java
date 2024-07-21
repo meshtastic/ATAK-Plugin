@@ -817,6 +817,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     String deviceCallsign = contact.getDeviceCallsign();
                     String msgId = String.valueOf(UUID.randomUUID());
 
+                    if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
+                        StringBuilder message = new StringBuilder();
+                        message.append("GeoChat from ");
+                        message.append(callsign);
+                        message.append(" ");
+                        message.append(geoChat.getMessage());
+                        MeshtasticDropDownReceiver.t1.speak(message.toString(), TextToSpeech.QUEUE_FLUSH, null);
+                    }
+
                     CotDetail cotDetail = new CotDetail("detail");
 
                     CoordinatedTime time = new CoordinatedTime();
@@ -899,6 +908,15 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     String deviceCallsign = contact.getDeviceCallsign();
                     String msgId = String.valueOf(UUID.randomUUID());
                     String to = geoChat.getTo();
+
+                    if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
+                        StringBuilder message = new StringBuilder();
+                        message.append("GeoChat from ");
+                        message.append(callsign);
+                        message.append(" ");
+                        message.append(geoChat.getMessage());
+                        MeshtasticDropDownReceiver.t1.speak(message.toString(), TextToSpeech.QUEUE_FLUSH, null);
+                    }
 
                     CotDetail cotDetail = new CotDetail("detail");
 
