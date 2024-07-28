@@ -22,6 +22,7 @@ import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
+import com.atakmap.android.chat.ChatDatabase;
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
@@ -878,7 +879,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            //CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
                         }
                     } else
                         Log.e(TAG, "cotEvent was not valid");
