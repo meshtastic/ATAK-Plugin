@@ -116,7 +116,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static void sendToMesh(DataPacket dp) {
         try {
-            mMeshService.send(dp);
+            if (mMeshService != null)
+                mMeshService.send(dp);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -217,7 +218,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         try {
             // We're done chunking
             DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, prefs.getInt("meshtastic_channel", 0));
-            mMeshService.send(dp);
+            if (mMeshService != null)
+                mMeshService.send(dp);
         } catch (RemoteException e) {
             e.printStackTrace();
             return false;
@@ -227,14 +229,16 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static void setOwner(MeshUser meshUser) {
         try {
-            mMeshService.setOwner(meshUser);
+            if (mMeshService != null)
+                mMeshService.setOwner(meshUser);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
     }
     public static void setChannel(byte[] channel) {
         try {
-            mMeshService.setChannel(channel);
+            if (mMeshService != null)
+                mMeshService.setChannel(channel);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -242,7 +246,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static void setConfig(byte[] config) {
         try {
-            mMeshService.setConfig(config);
+            if (mMeshService != null)
+                mMeshService.setConfig(config);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -250,7 +255,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static byte[] getChannelSet() {
         try {
-            return mMeshService.getChannelSet();
+            if (mMeshService != null)
+                return mMeshService.getChannelSet();
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -259,7 +265,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static byte[] getConfig() {
         try {
-            return mMeshService.getConfig();
+            if (mMeshService != null)
+                return mMeshService.getConfig();
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getConfig failed");
@@ -269,7 +276,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static List<NodeInfo> getNodes() {
         try {
-            return mMeshService.getNodes();
+            if (mMeshService != null)
+                return mMeshService.getNodes();
         } catch (Exception e) {
             e.printStackTrace();
             Log.d(TAG, "getNodes failed");
@@ -278,7 +286,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
     }
     public static MyNodeInfo getMyNodeInfo() {
         try {
-            return mMeshService.getMyNodeInfo();
+            if (mMeshService != null)
+                return mMeshService.getMyNodeInfo();
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getMyNodeInfo failed");
@@ -288,7 +297,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
     public static String getMyNodeID() {
         try {
-            return mMeshService.getMyId();
+            if (mMeshService != null)
+                return mMeshService.getMyId();
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getMyNodeID failed");
@@ -450,7 +460,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
             dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
             try {
-                mMeshService.send(dp);
+                if (mMeshService != null)
+                    mMeshService.send(dp);
             } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
@@ -519,7 +530,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
             dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
             try {
-                mMeshService.send(dp);
+                if (mMeshService != null)
+                    mMeshService.send(dp);
             } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
@@ -600,7 +612,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
             }
             try {
-                mMeshService.send(dp);
+                if (mMeshService != null)
+                    mMeshService.send(dp);
             } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
@@ -621,7 +634,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 Log.d(TAG, "Small send");
                 dp = new DataPacket(DataPacket.ID_BROADCAST, cotAsBytes, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
                 try {
-                    mMeshService.send(dp);
+                    if (mMeshService != null)
+                        mMeshService.send(dp);
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
@@ -648,7 +662,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 // send out 1 chunk
                 dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
                 try {
-                    mMeshService.send(dp);
+                    if (mMeshService != null)
+                        mMeshService.send(dp);
                 } catch (RemoteException e) {
                     e.printStackTrace();
                     return;
@@ -658,7 +673,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
             // We're done chunking
             dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
             try {
-                mMeshService.send(dp);
+                if (mMeshService != null)
+                    mMeshService.send(dp);
             } catch (RemoteException e) {
                 e.printStackTrace();
                 return;

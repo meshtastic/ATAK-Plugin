@@ -24,6 +24,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.atakmap.android.chat.ChatDatabase;
 import com.atakmap.android.cot.CotMapComponent;
+import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.coremap.cot.event.CotDetail;
