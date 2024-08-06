@@ -997,6 +997,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
         if (prefs.getBoolean("plugin_meshtastic_from_server", false)) {
             if (cotEvent.isValid()) {
 
+                Log.d(TAG, "onCotEvent");
+                Log.d(TAG, cotEvent.toString());
+
                 int hopLimit = prefs.getInt("plugin_meshtastic_hop_limit", 3);
                 if (hopLimit > 8) {
                     hopLimit = 8;
@@ -1029,7 +1032,6 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                 // All Chat Rooms
                 if (cotEvent.getType().startsWith("b-t-f") && cotEvent.getUID().contains("All Chat Rooms")) {
-
                     try {
                         while (eventType != XmlPullParser.END_DOCUMENT) {
                             if (eventType == XmlPullParser.START_TAG) {

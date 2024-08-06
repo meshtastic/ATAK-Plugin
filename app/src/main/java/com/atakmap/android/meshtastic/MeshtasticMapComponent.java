@@ -14,6 +14,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
@@ -30,6 +31,7 @@ import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.android.util.NotificationUtil;
 import com.atakmap.app.preferences.ToolsPreferenceFragment;
+import com.atakmap.comms.CotServiceRemote;
 import com.atakmap.coremap.filesystem.FileSystemUtils;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.cot.event.CotEvent;
@@ -68,11 +70,23 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class MeshtasticMapComponent extends DropDownMapComponent
         implements CommsMapComponent.PreSendProcessor,
-        SharedPreferences.OnSharedPreferenceChangeListener {
+        SharedPreferences.OnSharedPreferenceChangeListener,
+        CotServiceRemote.ConnectionListener {
     private static final String TAG = "MeshtasticMapComponent";
     private Context pluginContext;
     public static CotShrinkerFactory cotShrinkerFactory = new CotShrinkerFactory();
     public static CotShrinker cotShrinker = cotShrinkerFactory.createCotShrinker();
+
+    @Override
+    public void onCotServiceConnected(Bundle bundle) {
+
+    }
+
+    @Override
+    public void onCotServiceDisconnected() {
+
+    }
+
     public enum ServiceConnectionState {
         DISCONNECTED,
         CONNECTED
@@ -687,7 +701,10 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
-        
+
+
+
+
         mNotifyManager =
                 (NotificationManager) view.getContext()
                         .getSystemService(NOTIFICATION_SERVICE);
@@ -741,6 +758,10 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         intentFilter.addAction(ACTION_TEXT_MESSAGE_APP);
 
         view.getContext().registerReceiver(mr, intentFilter, Context.RECEIVER_EXPORTED);
+
+        CotServiceRemote cotService = new CotServiceRemote();
+        cotService.setCotEventListener(mr);
+        cotService.connect(this);
 
         mServiceIntent = new Intent();
         mServiceIntent.setClassName(PACKAGE_NAME, CLASS_NAME);
