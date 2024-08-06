@@ -8,6 +8,12 @@
         android:dialogTitle="Enable relay to server"
         android:defaultValue="false"/>
     <com.atakmap.android.gui.PanSwitchPreference
+        android:key="plugin_meshtastic_from_server"
+        android:title="Enable relay from server"
+        android:summary="If enabled, messages from TAK Server will relay to Meshtastic (PLI/Chat only)"
+        android:dialogTitle="Enable relay from server"
+        android:defaultValue="false"/>
+    <com.atakmap.android.gui.PanSwitchPreference
     android:key="plugin_meshtastic_tracker"
         android:title="Show all Meshtastic devices"
         android:summary="If enabled, all Meshtastic devices will be shown on the map"

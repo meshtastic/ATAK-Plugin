@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
@@ -23,10 +24,15 @@ import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 
 import com.atakmap.android.chat.ChatDatabase;
+import com.atakmap.android.chat.ChatManagerMapComponent;
+import com.atakmap.android.chat.GeoChatConnectorHandler;
+import com.atakmap.android.contact.Contact;
+import com.atakmap.android.contact.Contacts;
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
+import com.atakmap.comms.CotServiceRemote;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
@@ -51,19 +57,25 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.atakmap.android.meshtastic.plugin.*;
 
-public class MeshtasticReceiver extends BroadcastReceiver {
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
+
+public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceRemote.CotEventListener {
     private final String TAG = "MeshtasticReceiver";
     private SharedPreferences prefs;
     private SharedPreferences.Editor editor;
-
     private int oldModemPreset;
     private String sender;
     private static NotificationManager mNotifyManager;
@@ -447,7 +459,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");
-                    takvDetail.setAttribute("version", "1.0.25" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("version", "1.0.27" + "\n----NodeInfo----\n" + ni.toString());
                     takvDetail.setAttribute("device", ni.getUser().getHwModelString());
                     takvDetail.setAttribute("os", "1");
                     cotDetail.addChild(takvDetail);
@@ -460,7 +472,6 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     contactDetail.setAttribute("callsign", teamColor[0]);
                     contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(contactDetail);
-
 
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
@@ -880,7 +891,7 @@ public class MeshtasticReceiver extends BroadcastReceiver {
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                            //CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
                         }
                     } else
                         Log.e(TAG, "cotEvent was not valid");
@@ -980,4 +991,192 @@ public class MeshtasticReceiver extends BroadcastReceiver {
             }
         }
     }
+
+    @Override
+    public void onCotEvent(CotEvent cotEvent, Bundle bundle) {
+        if (prefs.getBoolean("plugin_meshtastic_from_server", false)) {
+            if (cotEvent.isValid()) {
+
+                int hopLimit = prefs.getInt("plugin_meshtastic_hop_limit", 3);
+                if (hopLimit > 8) {
+                    hopLimit = 8;
+                }
+
+                int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+
+
+                DataPacket dp = null;
+                int eventType = -1;
+                double divisor = 1e-7;
+                XmlPullParserFactory factory = null;
+                XmlPullParser xpp = null;
+                String callsign = null;
+                String deviceCallsign = null;
+                String message = null;
+
+                CotDetail cotDetail = cotEvent.getDetail();
+
+                try {
+                    factory = XmlPullParserFactory.newInstance();
+                    factory.setNamespaceAware(true);
+                    xpp = factory.newPullParser();
+                    xpp.setInput(new StringReader(cotDetail.toString()));
+                    eventType = xpp.getEventType();
+                } catch (XmlPullParserException e) {
+                    e.printStackTrace();
+                    return;
+                }
+
+                // All Chat Rooms
+                if (cotEvent.getType().startsWith("b-t-f") && cotEvent.getUID().contains("All Chat Rooms")) {
+
+                    try {
+                        while (eventType != XmlPullParser.END_DOCUMENT) {
+                            if (eventType == XmlPullParser.START_TAG) {
+                                Log.d(TAG, xpp.getName());
+                                if (xpp.getName().equalsIgnoreCase("remarks")) {
+                                    if (xpp.next() == XmlPullParser.TEXT)
+                                        message = xpp.getText();
+                                } else if (xpp.getName().equalsIgnoreCase("__chat")) {
+                                    int attributeCount = xpp.getAttributeCount();
+                                    Log.d(TAG, "__chat has " + +attributeCount);
+                                    for (int i = 0; i < attributeCount; i++) {
+                                        if (xpp.getAttributeName(i).equalsIgnoreCase("senderCallsign"))
+                                            callsign = xpp.getAttributeValue(i);
+                                    }
+                                } else if (xpp.getName().equalsIgnoreCase("link")) {
+                                    int attributeCount = xpp.getAttributeCount();
+                                    Log.d(TAG, "link has " + +attributeCount);
+                                    for (int i = 0; i < attributeCount; i++) {
+                                        if (xpp.getAttributeName(i).equalsIgnoreCase("uid"))
+                                            deviceCallsign = xpp.getAttributeValue(i);
+                                    }
+                                }
+                            }
+                            eventType = xpp.next();
+                        }
+
+                    } catch (XmlPullParserException | IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
+                    contact.setCallsign(callsign);
+                    contact.setDeviceCallsign(deviceCallsign);
+
+                    ATAKProtos.GeoChat.Builder geochat = ATAKProtos.GeoChat.newBuilder();
+                    geochat.setMessage(message);
+                    geochat.setTo("All Chat Rooms");
+
+                    ATAKProtos.TAKPacket.Builder tak_packet = ATAKProtos.TAKPacket.newBuilder();
+                    tak_packet.setContact(contact);
+                    tak_packet.setChat(geochat);
+
+                    Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+                    Log.d(TAG, "Sending: " + tak_packet.build().toString());
+
+                    dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
+                    try {
+                        if (MeshtasticMapComponent.getMeshService() != null)
+                            MeshtasticMapComponent.getMeshService().send(dp);
+                    } catch (RemoteException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else if (cotDetail.getAttribute("contact") != null) {
+                    for (Contact c : Contacts.getInstance().getAllContacts()) {
+                        if (cotEvent.getUID().equals(c.getUid())) {
+
+                            int battery = 0, course = 0, speed = 0;
+                            String role = null, name = null;
+                            double lat = 0, lng = 0, alt = 0;
+
+                            lat = cotEvent.getGeoPoint().getLatitude();
+                            lng = cotEvent.getGeoPoint().getLongitude();
+                            alt = cotEvent.getGeoPoint().getAltitude();
+
+                            try {
+                                while (eventType != XmlPullParser.END_DOCUMENT) {
+                                    if (eventType == XmlPullParser.START_TAG) {
+                                        if (xpp.getName().equalsIgnoreCase("contact")) {
+                                            int attributeCount = xpp.getAttributeCount();
+                                            Log.d(TAG, "Contact has " + attributeCount);
+                                            for (int i = 0; i < attributeCount; i++) {
+                                                if (xpp.getAttributeName(i).equalsIgnoreCase("callsign"))
+                                                    callsign = xpp.getAttributeValue(i);
+                                            }
+                                        } else if (xpp.getName().equalsIgnoreCase("__group")) {
+                                            int attributeCount = xpp.getAttributeCount();
+                                            Log.d(TAG, "__group has " + attributeCount);
+                                            for (int i = 0; i < attributeCount; i++) {
+                                                if (xpp.getAttributeName(i).equalsIgnoreCase("role"))
+                                                    role = xpp.getAttributeValue(i);
+                                                else if (xpp.getAttributeName(i).equalsIgnoreCase("name"))
+                                                    name = xpp.getAttributeValue(i);
+                                            }
+                                        } else if (xpp.getName().equalsIgnoreCase("status")) {
+                                            int attributeCount = xpp.getAttributeCount();
+                                            Log.d(TAG, "status has " + attributeCount);
+                                            for (int i = 0; i < attributeCount; i++) {
+                                                if (xpp.getAttributeName(i).equalsIgnoreCase("battery"))
+                                                    battery = Integer.parseInt(xpp.getAttributeValue(i));
+                                            }
+                                        } else if (xpp.getName().equalsIgnoreCase("track")) {
+                                            int attributeCount = xpp.getAttributeCount();
+                                            Log.d(TAG, "track has " + attributeCount);
+                                            for (int i = 0; i < attributeCount; i++) {
+                                                if (xpp.getAttributeName(i).equalsIgnoreCase("course"))
+                                                    course = Double.valueOf(xpp.getAttributeValue(i)).intValue();
+                                                else if (xpp.getAttributeName(i).equalsIgnoreCase("speed"))
+                                                    speed = Double.valueOf(xpp.getAttributeValue(i)).intValue();
+                                            }
+                                        }
+                                    }
+                                    eventType = xpp.next();
+                                }
+                            } catch (XmlPullParserException | IOException e) {
+                                e.printStackTrace();
+                                return;
+                            }
+
+                            ATAKProtos.Contact.Builder contact = ATAKProtos.Contact.newBuilder();
+                            contact.setCallsign(callsign);
+                            contact.setDeviceCallsign(cotEvent.getUID());
+
+                            ATAKProtos.Group.Builder group = ATAKProtos.Group.newBuilder();
+                            group.setRole(ATAKProtos.MemberRole.valueOf(role.replace(" ", "")));
+                            group.setTeam(ATAKProtos.Team.valueOf(name.replace(" ", "")));
+
+                            ATAKProtos.Status.Builder status = ATAKProtos.Status.newBuilder();
+                            status.setBattery(battery);
+
+                            ATAKProtos.PLI.Builder pli = ATAKProtos.PLI.newBuilder();
+                            pli.setAltitude(Double.valueOf(alt).intValue());
+                            pli.setLatitudeI((int) (lat / divisor));
+                            pli.setLongitudeI((int) (lng / divisor));
+                            pli.setCourse(course);
+                            pli.setSpeed(speed);
+
+                            ATAKProtos.TAKPacket.Builder tak_packet = ATAKProtos.TAKPacket.newBuilder();
+                            tak_packet.setContact(contact);
+                            tak_packet.setStatus(status);
+                            tak_packet.setGroup(group);
+                            tak_packet.setPli(pli);
+
+                            Log.d(TAG, "Total wire size for TAKPacket: " + tak_packet.build().toByteArray().length);
+                            Log.d(TAG, "Sending: " + tak_packet.build().toString());
+
+                            dp = new DataPacket(DataPacket.ID_BROADCAST, tak_packet.build().toByteArray(), Portnums.PortNum.ATAK_PLUGIN_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
+                            try {
+                                if (MeshtasticMapComponent.getMeshService() != null)
+                                    MeshtasticMapComponent.getMeshService().send(dp);
+                            } catch (RemoteException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }

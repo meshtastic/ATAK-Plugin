@@ -270,8 +270,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getConfig failed");
-            return null;
         }
+        return null;
     }
 
     public static List<NodeInfo> getNodes() {
@@ -281,9 +281,10 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         } catch (Exception e) {
             e.printStackTrace();
             Log.d(TAG, "getNodes failed");
-            return null;
         }
+        return null;
     }
+
     public static MyNodeInfo getMyNodeInfo() {
         try {
             if (mMeshService != null)
@@ -291,8 +292,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getMyNodeInfo failed");
-            return null;
         }
+        return null;
     }
 
     public static String getMyNodeID() {
@@ -302,8 +303,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         } catch (RemoteException e) {
             e.printStackTrace();
             Log.d(TAG, "getMyNodeID failed");
-            return "";
         }
+        return "";
     }
     public static IMeshService getMeshService() {
         return mMeshService;
