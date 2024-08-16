@@ -7,6 +7,7 @@ There is now a Meshtastic Tool menu, it currently is only used for recording Voi
 # Settings
 The plugin currently has the following settings:
 - Enable relay to server, this forwards all CotEvents (except DMs) to any connected TAKServers
+- Enable relay from server, this forwards all PLI and All Chat Rooms geochats from connected TAKServers to Meshtastic
 - Show all Meshtastic devices, this will place Sensor CoTs on the map for meshtastic devices
 - Do not show Meshtastic devices without GPS, this will not place Sensor CoTs for meshtastic devices without GPS (0,0)
 - Do not show your local node, this will not place a Sensor CoT on the map for the meshtastic device currently bound to the EUD
