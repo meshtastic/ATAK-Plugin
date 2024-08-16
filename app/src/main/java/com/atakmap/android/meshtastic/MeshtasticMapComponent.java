@@ -328,6 +328,12 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
         Log.d(TAG, "processCotEvent");
 
+        CotDetail cotDetail = cotEvent.getDetail();
+        if (cotDetail.getChildren().contains("__meshtastic")) {
+            Log.d(TAG, "Meshtastic message, don't forward");
+            return;
+        }
+
         if (mConnectionState == ServiceConnectionState.DISCONNECTED) {
             Log.d(TAG, "Service not connected");
             return;
@@ -346,7 +352,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         int channel = prefs.getInt("plugin_meshtastic_channel", 0);
 
         Log.d(TAG, cotEvent.toString());
-        CotDetail cotDetail = cotEvent.getDetail();
         Log.d(TAG, cotDetail.toString());
 
         int eventType = -1;
@@ -701,9 +706,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         CommsMapComponent.getInstance().registerPreSendProcessor(this);
         context.setTheme(R.style.ATAKPluginTheme);
         pluginContext = context;
-
-
-
 
         mNotifyManager =
                 (NotificationManager) view.getContext()

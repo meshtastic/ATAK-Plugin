@@ -31,6 +31,7 @@ import com.atakmap.android.contact.Contacts;
 import com.atakmap.android.cot.CotMapComponent;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.MapView;
+import com.atakmap.android.maps.Marker;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.comms.CotServiceRemote;
 import com.atakmap.coremap.cot.event.CotDetail;
@@ -266,7 +267,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
-                        //    CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
                         }
                     }
                 }
@@ -459,7 +460,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                     CotDetail takvDetail = new CotDetail("takv");
                     takvDetail.setAttribute("platform", "Meshtastic Plugin");
-                    takvDetail.setAttribute("version", "1.0.27" + "\n----NodeInfo----\n" + ni.toString());
+                    takvDetail.setAttribute("version", "\n----NodeInfo----\n" + ni.toString());
                     takvDetail.setAttribute("device", ni.getUser().getHwModelString());
                     takvDetail.setAttribute("os", "1");
                     cotDetail.addChild(takvDetail);
@@ -793,6 +794,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                     cotEvent.setHow("m-g");
 
+                    CotDetail meshDetail = new CotDetail("__meshtastic");
+                    cotDetail.addChild(meshDetail);
+
                     CotPoint cotPoint = new CotPoint(lat, lng, CotPoint.UNKNOWN,
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
@@ -828,7 +832,13 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                     String callsign = contact.getCallsign();
                     String deviceCallsign = contact.getDeviceCallsign();
-                    String msgId = String.valueOf(UUID.randomUUID());
+                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
+
+                    Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
+                    if (chatMessage != null) {
+                        Log.d(TAG, "Duplicate message");
+                        return;
+                    }
 
                     if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
                         StringBuilder message = new StringBuilder();
@@ -867,6 +877,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     CotDetail serverDestinationDetail = new CotDetail("__serverdestination");
                     serverDestinationDetail.setAttribute("destination", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(serverDestinationDetail);
+
+                    CotDetail meshDetail = new CotDetail("__meshtastic");
+                    cotDetail.addChild(meshDetail);
 
                     CotDetail remarksDetail = new CotDetail("remarks");
                     remarksDetail.setAttribute("source", String.format("BAO.F.ATAK.%s", deviceCallsign));
@@ -917,10 +930,16 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     ATAKProtos.Contact contact = tp.getContact();
                     ATAKProtos.GeoChat geoChat = tp.getChat();
 
+                    String to = geoChat.getTo();
                     String callsign = contact.getCallsign();
                     String deviceCallsign = contact.getDeviceCallsign();
-                    String msgId = String.valueOf(UUID.randomUUID());
-                    String to = geoChat.getTo();
+                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
+
+                    Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
+                    if (chatMessage != null) {
+                        Log.d(TAG, "Duplicate message");
+                        return;
+                    }
 
                     if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
                         StringBuilder message = new StringBuilder();
@@ -931,10 +950,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                         MeshtasticDropDownReceiver.t1.speak(message.toString(), TextToSpeech.QUEUE_FLUSH, null);
                     }
 
-                    CotDetail cotDetail = new CotDetail("detail");
-
                     CoordinatedTime time = new CoordinatedTime();
 
+                    CotDetail cotDetail = new CotDetail("detail");
                     CotDetail chatDetail = new CotDetail("__chat");
                     chatDetail.setAttribute("parent", "RootContactGroup");
                     chatDetail.setAttribute("groupOwner", "false");
@@ -976,6 +994,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     cotEvent.setType("b-t-f");
                     cotEvent.setHow("h-g-i-g-o");
 
+                    CotDetail meshDetail = new CotDetail("__meshtastic");
+                    cotDetail.addChild(meshDetail);
+
                     CotPoint cotPoint = new CotPoint(0, 0, CotPoint.UNKNOWN,
                             CotPoint.UNKNOWN, CotPoint.UNKNOWN);
                     cotEvent.setPoint(cotPoint);
@@ -994,9 +1015,16 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
     @Override
     public void onCotEvent(CotEvent cotEvent, Bundle bundle) {
+
         if (prefs.getBoolean("plugin_meshtastic_from_server", false)) {
             if (cotEvent.isValid()) {
 
+                CotDetail cotDetail = cotEvent.getDetail();
+
+                if (cotDetail.getChildren().contains("__meshtastic")) {
+                    Log.d(TAG, "Meshtastic CoT from server");
+                    return;
+                }
                 Log.d(TAG, "onCotEvent");
                 Log.d(TAG, cotEvent.toString());
 
@@ -1007,7 +1035,6 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                 int channel = prefs.getInt("plugin_meshtastic_channel", 0);
 
-
                 DataPacket dp = null;
                 int eventType = -1;
                 double divisor = 1e-7;
@@ -1016,8 +1043,6 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 String callsign = null;
                 String deviceCallsign = null;
                 String message = null;
-
-                CotDetail cotDetail = cotEvent.getDetail();
 
                 try {
                     factory = XmlPullParserFactory.newInstance();
