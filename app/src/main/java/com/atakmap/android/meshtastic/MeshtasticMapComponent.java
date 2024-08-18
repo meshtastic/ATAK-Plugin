@@ -329,7 +329,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         Log.d(TAG, "processCotEvent");
 
         CotDetail cotDetail = cotEvent.getDetail();
-        if (cotDetail.getChildren().contains("__meshtastic")) {
+        if (cotDetail.getChild("__meshtastic") != null) {
             Log.d(TAG, "Meshtastic message, don't forward");
             return;
         }

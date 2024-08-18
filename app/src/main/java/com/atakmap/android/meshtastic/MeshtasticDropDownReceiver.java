@@ -150,6 +150,8 @@ Config: device {
     '-->
 
  */
+
+        /*
         configBtn = mainView.findViewById(R.id.configBtn);
         configBtn.setOnClickListener(v -> {
 
@@ -166,6 +168,7 @@ Config: device {
                 throw new RuntimeException(e);
             }
         });
+        */
 
         // Check if user has given permission to record audio, init the model after permission is granted
         int permissionCheck = ContextCompat.checkSelfPermission(mapView.getContext().getApplicationContext(), Manifest.permission.RECORD_AUDIO);

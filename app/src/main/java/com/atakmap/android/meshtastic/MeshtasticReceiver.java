@@ -834,11 +834,11 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     String deviceCallsign = contact.getDeviceCallsign();
                     String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
 
-                    Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
-                    if (chatMessage != null) {
-                        Log.d(TAG, "Duplicate message");
-                        return;
-                    }
+                    //Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
+                    //if (chatMessage != null) {
+                    //    Log.d(TAG, "Duplicate message");
+                    //    return;
+                    //}
 
                     if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
                         StringBuilder message = new StringBuilder();
@@ -935,11 +935,11 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     String deviceCallsign = contact.getDeviceCallsign();
                     String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
 
-                    Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
-                    if (chatMessage != null) {
-                        Log.d(TAG, "Duplicate message");
-                        return;
-                    }
+                    //Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
+                    //if (chatMessage != null) {
+                    //    Log.d(TAG, "Duplicate message");
+                    //    return;
+                    //}
 
                     if (prefs.getBoolean("plugin_meshtastic_voice", false)) {
                         StringBuilder message = new StringBuilder();
@@ -1021,10 +1021,11 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                 CotDetail cotDetail = cotEvent.getDetail();
 
-                if (cotDetail.getChildren().contains("__meshtastic")) {
+                if (cotDetail.getChild("__meshtastic") != null) {
                     Log.d(TAG, "Meshtastic CoT from server");
                     return;
                 }
+
                 Log.d(TAG, "onCotEvent");
                 Log.d(TAG, cotEvent.toString());
 
