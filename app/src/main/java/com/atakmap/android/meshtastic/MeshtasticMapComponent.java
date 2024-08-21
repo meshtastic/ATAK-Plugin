@@ -344,12 +344,9 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
         DataPacket dp;
 
-        int hopLimit = prefs.getInt("plugin_meshtastic_hop_limit", 3);
-        if (hopLimit > 8) {
-            hopLimit = 8;
-        }
+        int hopLimit = mr.getHopLimit();
         
-        int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+        int channel = mr.getChannelIndex();
 
         Log.d(TAG, cotEvent.toString());
         Log.d(TAG, cotDetail.toString());

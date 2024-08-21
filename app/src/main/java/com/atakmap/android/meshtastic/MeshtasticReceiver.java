@@ -1013,6 +1013,29 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
         }
     }
 
+    public int getHopLimit() {
+        try {
+            int hopLimit = prefs.getInt("plugin_meshtastic_hop_limit", 3);
+            if (hopLimit > 8) {
+                hopLimit = 8;
+            }
+            return hopLimit;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 3;
+        }
+    }
+
+    public int getChannelIndex() {
+        try {
+            int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+            return channel;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
     @Override
     public void onCotEvent(CotEvent cotEvent, Bundle bundle) {
 
@@ -1029,12 +1052,8 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 Log.d(TAG, "onCotEvent");
                 Log.d(TAG, cotEvent.toString());
 
-                int hopLimit = prefs.getInt("plugin_meshtastic_hop_limit", 3);
-                if (hopLimit > 8) {
-                    hopLimit = 8;
-                }
-
-                int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+                int hopLimit = getHopLimit();
+                int channel = getChannelIndex();
 
                 DataPacket dp = null;
                 int eventType = -1;
