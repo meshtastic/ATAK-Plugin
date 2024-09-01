@@ -23,55 +23,54 @@ import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
-import com.atakmap.android.chat.ChatDatabase;
-import com.atakmap.android.chat.ChatManagerMapComponent;
-import com.atakmap.android.chat.GeoChatConnectorHandler;
 import com.atakmap.android.contact.Contact;
 import com.atakmap.android.contact.Contacts;
 import com.atakmap.android.cot.CotMapComponent;
-import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.MapView;
-import com.atakmap.android.maps.Marker;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.comms.CotServiceRemote;
 import com.atakmap.coremap.cot.event.CotDetail;
 import com.atakmap.coremap.cot.event.CotEvent;
 import com.atakmap.coremap.cot.event.CotPoint;
-import com.atakmap.coremap.filesystem.FileSystemUtils;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.maps.time.CoordinatedTime;
 
 import com.geeksville.mesh.ATAKProtos;
-import com.geeksville.mesh.AppOnlyProtos;
-import com.geeksville.mesh.ChannelProtos;
 import com.geeksville.mesh.ConfigProtos;
 import com.geeksville.mesh.DataPacket;
 
 import com.geeksville.mesh.LocalOnlyProtos;
-import com.geeksville.mesh.MeshProtos;
-import com.geeksville.mesh.MeshUser;
 import com.geeksville.mesh.MessageStatus;
-import com.geeksville.mesh.MyNodeInfo;
 import com.geeksville.mesh.NodeInfo;
 import com.geeksville.mesh.Portnums;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import java.io.ByteArrayInputStream;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.atakmap.android.meshtastic.plugin.*;
+import com.siemens.ct.exi.core.EXIFactory;
+import com.siemens.ct.exi.core.helpers.DefaultEXIFactory;
+import com.siemens.ct.exi.main.api.sax.EXISource;
 
+import org.xml.sax.InputSource;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
+
+import javax.xml.transform.Result;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.sax.SAXSource;
+import javax.xml.transform.stream.StreamResult;
 
 public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceRemote.CotEventListener {
     private final String TAG = "MeshtasticReceiver";
@@ -677,7 +676,17 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     return;
                 }
                 try {
-                    CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(combined);
+                    EXIFactory exiFactory = DefaultEXIFactory.newInstance();
+                    StringWriter writer = new StringWriter();
+                    Result result = new StreamResult(writer);
+                    InputSource is = new InputSource(new ByteArrayInputStream(combined));
+                    SAXSource exiSource = new EXISource(exiFactory);
+                    exiSource.setInputSource(is);
+                    TransformerFactory tf = TransformerFactory.newInstance();
+                    Transformer transformer = tf.newTransformer();
+                    transformer.transform(exiSource, result);
+                    CotEvent cotEvent = CotEvent.parse(writer.toString());
+
                     if (cotEvent != null && cotEvent.isValid()) {
                         Log.d(TAG, "Chunked CoT Received");
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
@@ -692,8 +701,16 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 }
             } else {
                 try {
-
-                    CotEvent cotEvent = MeshtasticMapComponent.cotShrinker.toCotEvent(payload.getBytes());
+                    EXIFactory exiFactory = DefaultEXIFactory.newInstance();
+                    StringWriter writer = new StringWriter();
+                    Result result = new StreamResult(writer);
+                    InputSource is = new InputSource(new ByteArrayInputStream(payload.getBytes()));
+                    SAXSource exiSource = new EXISource(exiFactory);
+                    exiSource.setInputSource(is);
+                    TransformerFactory tf = TransformerFactory.newInstance();
+                    Transformer transformer = tf.newTransformer();
+                    transformer.transform(exiSource, result);
+                    CotEvent cotEvent = CotEvent.parse(writer.toString());
                     if ( cotEvent != null && cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
