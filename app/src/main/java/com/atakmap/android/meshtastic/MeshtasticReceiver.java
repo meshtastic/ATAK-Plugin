@@ -176,6 +176,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     Log.d(TAG, "Got ACK from Chunk");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.ERROR) {
                     Log.d(TAG, "Got ERROR from File");
+                    editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
                     editor.apply();
                 }
