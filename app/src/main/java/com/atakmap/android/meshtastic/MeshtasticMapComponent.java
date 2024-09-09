@@ -643,7 +643,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 return;
             }
             new Thread(() -> {
-                Log.d(TAG, "Using libcotshrink");
+                Log.d(TAG, "Sending Chunks");
 
                 byte[] cotAsBytes;
 

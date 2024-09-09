@@ -175,7 +175,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     editor.apply();
                     Log.d(TAG, "Got ACK from Chunk");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.ERROR) {
-                    Log.d(TAG, "Got ERROR from File");
+                    Log.d(TAG, "Got ERROR from Chunk");
                     editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
                     editor.apply();
@@ -643,7 +643,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 chunkMap.clear();
                 chunkCount = 0;
 
-                // this was a file transfer not libcotshrink
+                // this was a file transfer not chunks
                 if (prefs.getBoolean("plugin_meshtastic_file_transfer", false)) {
                     Log.d(TAG, "File Received");
 
@@ -695,7 +695,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                             CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
                         }
                     } else {
-                        Log.d(TAG, "Failed to libcotshrink: " + new String(combined));
+                        Log.d(TAG, "Failed to chunk: " + new String(combined));
                     }
                 } catch (Throwable e) {
                     e.printStackTrace();
