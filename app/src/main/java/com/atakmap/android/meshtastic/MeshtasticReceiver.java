@@ -163,22 +163,20 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 MessageStatus status = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_STATUS);
                 Log.d(TAG, "Message Status ID: " + id + " Status: " + status);
                 if (prefs.getInt("plugin_meshtastic_switch_id", 0) == id && status == MessageStatus.DELIVERED) {
-                    SharedPreferences.Editor editor = prefs.edit();
                     editor.putBoolean("plugin_meshtastic_switch_ACK", false);
                     editor.apply();
                     Log.d(TAG, "Got ACK from Switch");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.DELIVERED) {
-                    SharedPreferences.Editor editor = prefs.edit();
                     // clear the ACK/ERR for the chunk
                     editor.putBoolean("plugin_meshtastic_chunk_ACK", false);
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", false);
                     editor.apply();
-                    Log.d(TAG, "Got ACK from Chunk");
+                    Log.d(TAG, "Got DELIVERED from Chunk");
                 } else if (prefs.getInt("plugin_meshtastic_chunk_id", 0) == id && status == MessageStatus.ERROR) {
-                    Log.d(TAG, "Got ERROR from Chunk");
-                    editor.putBoolean("plugin_meshtastic_chunk_ACK", true);
+                    editor.putBoolean("plugin_meshtastic_chunk_ACK", false);
                     editor.putBoolean("plugin_meshtastic_chunk_ERR", true);
                     editor.apply();
+                    Log.d(TAG, "Got ERROR from Chunk");
                 }
                 break;
             case MeshtasticMapComponent.ACTION_RECEIVED_ATAK_FORWARDER:

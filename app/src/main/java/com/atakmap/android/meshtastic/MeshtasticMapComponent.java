@@ -641,7 +641,14 @@ public class MeshtasticMapComponent extends DropDownMapComponent
             if (prefs.getBoolean("plugin_meshtastic_plichat_only", false)) {
                 Log.d(TAG, "PLI/Chat Only");
                 return;
+            } else if (prefs.getBoolean("plugin_meshtastic_chunking", false)) {
+                Log.d(TAG, "Chunking in progress");
+                return;
             }
+
+            editor.putBoolean("plugin_meshtastic_chunking", true);
+            editor.apply();
+
             new Thread(() -> {
                 Log.d(TAG, "Sending Chunks");
 
@@ -714,7 +721,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                             mMeshService.send(dp[0]);
                             while (prefs.getBoolean("plugin_meshtastic_chunk_ACK", false)) {
                                 try {
-                                    Thread.sleep(500);
+                                    Thread.sleep(250);
                                     if (prefs.getBoolean("plugin_meshtastic_chunk_ERR", false)) {
                                         Log.d(TAG, "Chunk ERR received, retransmitting message ID: " + i[0]);
                                         j = 0;
@@ -739,6 +746,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                         e.printStackTrace();
                     }
                 }
+                editor.putBoolean("plugin_meshtastic_chunking", false);
+                editor.apply();
             }).start();
         }
     }
@@ -784,6 +793,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
         editor = prefs.edit();
         editor.putBoolean("plugin_meshtastic_file_transfer", false);
+        editor.putBoolean("plugin_meshtastic_chunking", true);
+        editor.apply();
         prefs.registerOnSharedPreferenceChangeListener(this);
 
         mr = new MeshtasticReceiver();
