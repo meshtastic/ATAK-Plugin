@@ -4,12 +4,6 @@ import android.graphics.Color
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
-/**
- * Room [Embedded], [Entity] and [PrimaryKey] annotations and imports, as well as any protobuf
- * reference [MeshProtos], [TelemetryProtos], [ConfigProtos] can be removed when only using the API.
- * For details check the AIDL interface in [com.geeksville.mesh.IMeshService]
- */
-
 //
 // model objects that directly map to the corresponding protobufs
 //
@@ -21,6 +15,7 @@ data class MeshUser(
         val shortName: String,
         val hwModel: MeshProtos.HardwareModel,
         val isLicensed: Boolean = false,
+        val role: Int = 0,
 ) : Parcelable {
 
     override fun toString(): String {
@@ -108,7 +103,8 @@ data class DeviceMetrics(
         val batteryLevel: Int = 0,
         val voltage: Float,
         val channelUtilization: Float,
-        val airUtilTx: Float
+        val airUtilTx: Float,
+        val uptimeSeconds: Int,
 ) : Parcelable {
     companion object {
         fun currentTime() = (System.currentTimeMillis() / 1000).toInt()
@@ -138,6 +134,7 @@ data class EnvironmentMetrics(
         val gasResistance: Float,
         val voltage: Float,
         val current: Float,
+        val iaq: Int,
 ) : Parcelable {
     companion object {
         fun currentTime() = (System.currentTimeMillis() / 1000).toInt()
