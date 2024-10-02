@@ -8,7 +8,7 @@ android {
         targetSdkVersion 33
     }
     buildFeatures {
-        buildConfig = false
+        buildConfig = true
     }
     sourceSets {
         main {

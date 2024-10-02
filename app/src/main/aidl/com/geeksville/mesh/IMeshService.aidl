@@ -33,17 +33,12 @@ Once you have bound to the service you should register your broadcast receivers 
 
     // com.geeksville.mesh.x broadcast intents, where x is:
 
-    // RECEIVED_DATA for data received from other nodes.  payload will contain a DataPacket, this action is DEPRECATED (because it sends all received data)
-    // far better to instead use RECEIVED.<portnumm>
-
     // RECEIVED.<portnumm> -  will **only** deliver packets for the specified port number.  If a wellknown portnums.proto name for portnum is known it will be used
     // (i.e. com.geeksville.mesh.RECEIVED.TEXT_MESSAGE_APP) else the numeric portnum will be included as a base 10 integer (com.geeksville.mesh.RECEIVED.4403 etc...)
 
     // NODE_CHANGE  for new IDs appearing or disappearing
     // CONNECTION_CHANGED for losing/gaining connection to the packet radio
-    // MESSAGE_STATUS_CHANGED for any message status changes (for sent messages only, other messages come via RECEIVED_DATA.  payload will contain a message ID and a MessageStatus)
-
-At the very least you will probably want to receive RECEIVED_DATA.
+    // MESSAGE_STATUS_CHANGED for any message status changes (for sent messages only, payload will contain a message ID and a MessageStatus)
 
 Note - these calls might throw RemoteException to indicate mesh error states
 */
@@ -58,7 +53,7 @@ interface IMeshService {
     */
     void setOwner(in MeshUser user);
 
-    void setRemoteOwner(in int destNum, in byte []payload);
+    void setRemoteOwner(in int requestId, in byte []payload);
     void getRemoteOwner(in int requestId, in int destNum);
 
     /// Return my unique user ID string
@@ -91,11 +86,11 @@ interface IMeshService {
     void setConfig(in byte []payload);
 
     /// Set and get a Config protobuf via admin packet
-    void setRemoteConfig(in int destNum, in byte []payload);
+    void setRemoteConfig(in int requestId, in int destNum, in byte []payload);
     void getRemoteConfig(in int requestId, in int destNum, in int configTypeValue);
 
     /// Set and get a ModuleConfig protobuf via admin packet
-    void setModuleConfig(in int destNum, in byte []payload);
+    void setModuleConfig(in int requestId, in int destNum, in byte []payload);
     void getModuleConfig(in int requestId, in int destNum, in int moduleConfigTypeValue);
 
     /// Set and get the Ext Notification Ringtone string via admin packet
@@ -111,7 +106,7 @@ interface IMeshService {
     void setChannel(in byte []payload);
 
     /// Set and get a Channel protobuf via admin packet
-    void setRemoteChannel(in int destNum, in byte []payload);
+    void setRemoteChannel(in int requestId, in int destNum, in byte []payload);
     void getRemoteChannel(in int requestId, in int destNum, in int channelIndex);
 
     /// Send beginEditSettings admin packet to nodeNum
@@ -120,8 +115,14 @@ interface IMeshService {
     /// Send commitEditSettings admin packet to nodeNum
     void commitEditSettings();
 
+    /// delete a specific nodeNum from nodeDB
+    void removeByNodenum(in int requestID, in int nodeNum);
+
     /// Send position packet with wantResponse to nodeNum
     void requestPosition(in int destNum, in Position position);
+
+    /// Send setFixedPosition admin packet (or removeFixedPosition if Position is empty)
+    void setFixedPosition(in int destNum, in Position position);
 
     /// Send traceroute packet with wantResponse to nodeNum
     void requestTraceroute(in int requestId, in int destNum);

@@ -380,11 +380,11 @@ public class MeshtasticMapComponent extends DropDownMapComponent
             e.printStackTrace();
             return;
         }
-
+/*
         if (cotEvent.getUID().startsWith("!") && cotEvent.getType().equals("a-f-G-E-S")) {
             Log.d(TAG, "Don't forward Meshtastic Nodes");
             return;
-        } else if (cotEvent.getUID().equals(getMapView().getSelfMarker().getUID())) {
+        } else */if (cotEvent.getUID().equals(getMapView().getSelfMarker().getUID())) {
             // self PLI report
             /*
             <?xml version='1.0' encoding='UTF-8' standalone='yes'?>
@@ -793,7 +793,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
         editor = prefs.edit();
         editor.putBoolean("plugin_meshtastic_file_transfer", false);
-        editor.putBoolean("plugin_meshtastic_chunking", true);
+        editor.putBoolean("plugin_meshtastic_chunking", false);
         editor.apply();
         prefs.registerOnSharedPreferenceChangeListener(this);
 

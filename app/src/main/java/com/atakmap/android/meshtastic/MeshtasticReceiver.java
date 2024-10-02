@@ -17,6 +17,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.widget.Toast;
@@ -472,6 +473,9 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     contactDetail.setAttribute("endpoint", "0.0.0.0:4242:tcp");
                     cotDetail.addChild(contactDetail);
 
+                    CotDetail meshDetail = new CotDetail("__meshtastic");
+                    cotDetail.addChild(meshDetail);
+
                     if (cotEvent.isValid()) {
                         CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
                         if (prefs.getBoolean("plugin_meshtastic_server", false)) {
@@ -848,7 +852,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                     String callsign = contact.getCallsign();
                     String deviceCallsign = contact.getDeviceCallsign();
-                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
+                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode() + "-" + System.currentTimeMillis();
 
                     //Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
                     //if (chatMessage != null) {
@@ -949,7 +953,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     String to = geoChat.getTo();
                     String callsign = contact.getCallsign();
                     String deviceCallsign = contact.getDeviceCallsign();
-                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode();
+                    String msgId = callsign + "-" + deviceCallsign + "-" + geoChat.getMessage().hashCode() + "-" + System.currentTimeMillis();
 
                     //Bundle chatMessage = ChatDatabase.getInstance(_mapView.getContext()).getChatMessage(msgId);
                     //if (chatMessage != null) {

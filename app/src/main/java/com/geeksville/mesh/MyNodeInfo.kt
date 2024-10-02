@@ -3,11 +3,6 @@ package com.geeksville.mesh
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
-/**
- * Room [Entity] and [PrimaryKey] annotations and imports can be removed when only using the API.
- * For details check the AIDL interface in [com.geeksville.mesh.IMeshService]
- */
-
 // MyNodeInfo sent via special protobuf from radio
 @Parcelize
 data class MyNodeInfo(
