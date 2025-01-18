@@ -12,7 +12,7 @@ public class MeshtasticTool extends AbstractPluginTool implements Disposable {
         super(context,
                 context.getString(R.string.app_name),
                 context.getString(R.string.app_name),
-                context.getResources().getDrawable(R.drawable.ic_launcher),
+                context.getResources().getDrawable(R.drawable.mesh_logo_playstore),
                 "com.atakmap.android.meshtastic.SHOW_PLUGIN");
         PluginNativeLoader.init(context);
     }
