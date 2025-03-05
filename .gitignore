@@ -603,3 +603,38 @@ app/build/tmp/kotlin-classes/civDebug/META-INF/ATAK-Plugin-Meshtastic Plugin-1.0
 .gradle/7.3.3/checksums/md5-checksums.bin
 .gradle/7.3.3/checksums/sha1-checksums.bin
 .idea/deploymentTargetDropDown.xml
+#built application files
+*.apk
+*.ap_
+
+# files for the dex VM
+*.dex
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Windows thumbnail db
+Thumbs.db
+
+# OSX files
+.DS_Store
+
+# Eclipse project files
+.classpath
+.project
+
+# Android Studio
+*.iml
+.idea
+#.idea/workspace.xml - remove # and delete .idea if it better suit your needs.
+.gradle
+build/
+.takdev/aars/takdevlint.aar

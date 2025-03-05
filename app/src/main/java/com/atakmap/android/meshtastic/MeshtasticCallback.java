@@ -83,7 +83,7 @@ public class MeshtasticCallback implements SaveAndSendCallback {
                 new Thread(() -> {
 
                     // send out file transfer command
-                    int channel = prefs.getInt("plugin_meshtastic_channel", 0);
+                    int channel = MeshtasticReceiver.getChannelIndex();
                     int messageId = ThreadLocalRandom.current().nextInt(0x10000000, 0x7fffff00);
                     Log.d(TAG, "Switch Message ID: " + messageId);
                     editor.putInt("plugin_meshtastic_switch_id", messageId);

@@ -75,7 +75,7 @@ import javax.xml.transform.stream.StreamResult;
 
 public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceRemote.CotEventListener {
     private final String TAG = "MeshtasticReceiver";
-    private SharedPreferences prefs;
+    private static SharedPreferences prefs;
     private SharedPreferences.Editor editor;
     private int oldModemPreset;
     private String sender;
@@ -194,6 +194,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 thread.start();
                 break;
             }
+            case MeshtasticMapComponent.ACTION_ALERT_APP:
             case MeshtasticMapComponent.ACTION_TEXT_MESSAGE_APP:
                 Log.d(TAG, "Got a meshtastic text message");
                 DataPacket payload = intent.getParcelableExtra(MeshtasticMapComponent.EXTRA_PAYLOAD);
@@ -1046,7 +1047,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
         }
     }
 
-    public int getChannelIndex() {
+    public static int getChannelIndex() {
         try {
             int channel = prefs.getInt("plugin_meshtastic_channel", 0);
             return channel;

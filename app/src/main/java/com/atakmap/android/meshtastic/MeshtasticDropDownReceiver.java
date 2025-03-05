@@ -388,7 +388,7 @@ Config: device {
         if (hopLimit > 8) {
             hopLimit = 8;
         }
-        channel = prefs.getInt("plugin_meshtastic_channel", 0);
+        channel = MeshtasticReceiver.getChannelIndex();
 
         DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, MeshProtos.Data.newBuilder().setPayload(payload).build().toByteArray(),Portnums.PortNum.TEXT_MESSAGE_APP_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, hopLimit, channel);
         MeshtasticMapComponent.sendToMesh(dp);
