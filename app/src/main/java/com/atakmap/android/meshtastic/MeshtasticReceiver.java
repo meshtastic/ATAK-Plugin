@@ -115,7 +115,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     .setContentIntent(appIntent);
         }
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
+        prefs = new ProtectedSharedPreferences(PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext()));
         editor = prefs.edit();
 
         String action = intent.getAction();
@@ -371,6 +371,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
 
                 if (prefs.getBoolean("plugin_meshtastic_tracker", false)) {
                     String nodeName = ni.getUser().getLongName();
+                    Log.i(TAG, "Node name: " + nodeName);
                     CotDetail groupDetail = new CotDetail("__group");
                     String[] teamColor = {"Unknown", " -0"};
                     try {

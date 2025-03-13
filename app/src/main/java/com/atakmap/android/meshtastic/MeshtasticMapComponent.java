@@ -20,6 +20,7 @@ import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 
 
@@ -792,7 +793,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         ddFilter.addAction(MeshtasticDropDownReceiver.SHOW_PLUGIN);
         registerDropDownReceiver(ddr, ddFilter);
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
+        prefs = new ProtectedSharedPreferences(PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext()));
         editor = prefs.edit();
         editor.putBoolean("plugin_meshtastic_file_transfer", false);
         editor.putBoolean("plugin_meshtastic_chunking", false);
@@ -800,18 +801,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         prefs.registerOnSharedPreferenceChangeListener(this);
 
         mr = new MeshtasticReceiver();
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(ACTION_RECEIVED_ATAK_FORWARDER);
-        intentFilter.addAction("com.geeksville.mesh.RECEIVED.257");
-        intentFilter.addAction(ACTION_RECEIVED_ATAK_PLUGIN);
-        intentFilter.addAction("com.geeksville.mesh.RECEIVED.72");
-        intentFilter.addAction(ACTION_NODE_CHANGE);
-        intentFilter.addAction(ACTION_MESH_CONNECTED);
-        intentFilter.addAction(ACTION_MESH_DISCONNECTED);
-        intentFilter.addAction(ACTION_RECEIVED_NODEINFO_APP);
-        intentFilter.addAction(ACTION_RECEIVED_POSITION_APP);
-        intentFilter.addAction(ACTION_MESSAGE_STATUS);
-        intentFilter.addAction(ACTION_TEXT_MESSAGE_APP);
+        IntentFilter intentFilter = getIntentFilter();
 
         view.getContext().registerReceiver(mr, intentFilter, Context.RECEIVER_EXPORTED);
 
@@ -856,6 +846,24 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                         new PluginPreferencesFragment(
                                 pluginContext)));
     }
+
+    @NonNull
+    private static IntentFilter getIntentFilter() {
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ACTION_RECEIVED_ATAK_FORWARDER);
+        intentFilter.addAction("com.geeksville.mesh.RECEIVED.257");
+        intentFilter.addAction(ACTION_RECEIVED_ATAK_PLUGIN);
+        intentFilter.addAction("com.geeksville.mesh.RECEIVED.72");
+        intentFilter.addAction(ACTION_NODE_CHANGE);
+        intentFilter.addAction(ACTION_MESH_CONNECTED);
+        intentFilter.addAction(ACTION_MESH_DISCONNECTED);
+        intentFilter.addAction(ACTION_RECEIVED_NODEINFO_APP);
+        intentFilter.addAction(ACTION_RECEIVED_POSITION_APP);
+        intentFilter.addAction(ACTION_MESSAGE_STATUS);
+        intentFilter.addAction(ACTION_TEXT_MESSAGE_APP);
+        return intentFilter;
+    }
+
     public static boolean reconnect() throws RemoteException {
         boolean ret = getMapView().getContext().bindService(mServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         if (!ret) {

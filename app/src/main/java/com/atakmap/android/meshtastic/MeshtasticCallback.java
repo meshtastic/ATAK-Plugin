@@ -33,7 +33,7 @@ public class MeshtasticCallback implements SaveAndSendCallback {
         File file = new File(missionPackageManifest.getPath());
         Log.d(TAG, file.getAbsolutePath());
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext());
+        SharedPreferences prefs = new ProtectedSharedPreferences(PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext()));
         SharedPreferences.Editor editor = prefs.edit();
 
         if (FileSystemUtils.isFile(file)) {
