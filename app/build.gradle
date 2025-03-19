@@ -9,7 +9,7 @@
 buildscript {
 
 
-    ext.PLUGIN_VERSION = "1.0.37"
+    ext.PLUGIN_VERSION = "1.0.38"
     ext.ATAK_VERSION = "4.10.0"
 
     def takdevVersion = '2.+'
@@ -91,6 +91,12 @@ apply plugin: 'atak-takdev-plugin'
 android {
     compileSdkVersion 33
     buildToolsVersion "34.0.0"
+
+    bundle {
+        storeArchive {
+            enable = false
+        }
+    }
 
     dexOptions {
         jumboMode = true
@@ -179,6 +185,10 @@ android {
 
     packagingOptions {
         exclude 'META-INF/INDEX.LIST'
+        jniLibs {
+            useLegacyPackaging = true
+        }
+
     }
 
     sourceSets {

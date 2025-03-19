@@ -181,6 +181,8 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         byte[] chunk_hdr = String.format(Locale.US, "CHK_%d_", fileBytes.length).getBytes();
         int i = 0;
 
+        int channel = MeshtasticReceiver.getChannelIndex();
+
         HashMap<String, byte[]> chunkMap = new HashMap<>();
         for (byte[] c : chunkList) {
             byte[] combined = new byte[chunk_hdr.length + c.length];
@@ -203,7 +205,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
                 INNER:
                 for (int j=0; j<1; j++) {
-                    dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, prefs.getInt("plugin_meshtastic_channel", 0));
+                    dp = new DataPacket(DataPacket.ID_BROADCAST, combined, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), i, MessageStatus.UNKNOWN, 3, channel);
                     mMeshService.send(dp);
                     while (prefs.getBoolean("plugin_meshtastic_chunk_ACK", false)) {
                         try {
@@ -236,7 +238,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
         try {
             // We're done chunking
-            DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, prefs.getInt("plugin_meshtastic_channel", 0));
+            DataPacket dp = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, channel);
             if (mMeshService != null)
                 mMeshService.send(dp);
         } catch (RemoteException e) {
@@ -351,7 +353,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
 
         int hopLimit = mr.getHopLimit();
         
-        int channel = mr.getChannelIndex();
+        int channel = MeshtasticReceiver.getChannelIndex();
 
         Log.d(TAG, cotEvent.toString());
         Log.d(TAG, cotDetail.toString());
@@ -741,7 +743,7 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                     }
                 }
                 // We're done chunking
-                dp[0] = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, prefs.getInt("plugin_meshtastic_channel", 0));
+                dp[0] = new DataPacket(DataPacket.ID_BROADCAST, new byte[]{'E', 'N', 'D'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 3, channel);
                 if (mMeshService != null) {
                     try {
                         mMeshService.send(dp[0]);
