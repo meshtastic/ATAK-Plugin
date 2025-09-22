@@ -53,6 +53,7 @@ import java.util.concurrent.Executors;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.XMLConstants;
+import com.atakmap.coremap.xml.XMLUtils;
 
 public class MeshtasticMapComponent extends DropDownMapComponent
         implements CommsMapComponent.PreSendProcessor,
@@ -61,23 +62,6 @@ public class MeshtasticMapComponent extends DropDownMapComponent
         MeshServiceManager.ConnectionListener {
     
     private static final String TAG = "MeshtasticMapComponent";
-    
-    /**
-     * Creates a secure SAXParserFactory that prevents XXE attacks
-     */
-    private static SAXParserFactory createSecureSAXParserFactory() {
-        SAXParserFactory factory = SAXParserFactory.newInstance();
-        try {
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/validation", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to configure secure SAXParserFactory", e);
-        }
-        return factory;
-    }
     
     // Components
     private Context pluginContext;
@@ -404,7 +388,16 @@ public class MeshtasticMapComponent extends DropDownMapComponent
                 EXIResult exiResult = new EXIResult(exiFactory);
                 exiResult.setOutputStream(osEXI);
                 
-                SAXParserFactory saxParserFactory = createSecureSAXParserFactory();
+                SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
+                try {
+                    saxParserFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+                    saxParserFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+                    saxParserFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                    saxParserFactory.setFeature("http://xml.org/sax/features/validation", false);
+                    saxParserFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to configure secure SAXParserFactory", e);
+                }
                 SAXParser newSAXParser = saxParserFactory.newSAXParser();
                 XMLReader xmlReader = newSAXParser.getXMLReader();
                 xmlReader.setContentHandler(exiResult.getHandler());

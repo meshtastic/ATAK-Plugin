@@ -30,6 +30,7 @@ import com.atakmap.android.maps.MapView;
 import com.atakmap.android.meshtastic.plugin.R;
 import com.atakmap.android.meshtastic.util.Constants;
 import com.atakmap.coremap.log.Log;
+import com.atakmap.coremap.filesystem.FileSystemUtils;
 import com.geeksville.mesh.ATAKProtos;
 import com.geeksville.mesh.AppOnlyProtos;
 import com.geeksville.mesh.ConfigProtos;
@@ -53,7 +54,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -544,7 +544,12 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
         deleteContents(targetDir);
         copyAssets(assetManager, sourcePath, targetDir);
         // Copy uuid
-        copyFile(assetManager, sourcePath + "/uuid", targetDir);
+        FileSystemUtils.copyFromAssetsToStorageFile(
+            pluginContext,
+            sourcePath + "/uuid",
+            "tools/s2c/" + targetPath + "/" + sourcePath + "/uuid",
+            true
+        );
 
         this.model = new Model(resultPath);
         Log.d(TAG, "Model ready");
@@ -594,17 +599,6 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements
         }
     }
 
-    private static void copyFile(AssetManager assetManager, String fileName, File outPath) throws IOException {
-        try (InputStream in = assetManager.open(fileName);
-             OutputStream out = new FileOutputStream(outPath + "/" + fileName)) {
-
-            byte[] buffer = new byte[4000];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-        }
-    }
 
     public void recognizeMicrophone() {
         Log.d(TAG, "recognizeMicrophone");

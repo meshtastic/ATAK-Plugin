@@ -91,7 +91,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.XMLConstants;
+import com.atakmap.coremap.xml.XMLUtils;
 
 public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceRemote.CotEventListener {
     // constants
@@ -101,22 +101,6 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
     private static NotificationChannel mChannel;
     private static int id = Constants.NOTIFICATION_ID;
     private static int RECORDER_SAMPLERATE = Constants.AUDIO_SAMPLE_RATE;
-    
-    /**
-     * Creates a secure TransformerFactory that prevents XXE attacks
-     */
-    private static TransformerFactory createSecureTransformerFactory() {
-        TransformerFactory factory = TransformerFactory.newInstance();
-        try {
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            // For Android compatibility, use string constants instead of XMLConstants
-            factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "");
-            factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalStylesheet", "");
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to configure secure TransformerFactory", e);
-        }
-        return factory;
-    }
     // shared prefs
     private static ProtectedSharedPreferences prefs = new ProtectedSharedPreferences(
             PreferenceManager.getDefaultSharedPreferences(MapView.getMapView().getContext())
@@ -962,7 +946,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     InputSource is = new InputSource(new ByteArrayInputStream(combined));
                     SAXSource exiSource = new EXISource(exiFactory);
                     exiSource.setInputSource(is);
-                    TransformerFactory tf = createSecureTransformerFactory();
+                    TransformerFactory tf = XMLUtils.getTransformerFactory();
                     Transformer transformer = tf.newTransformer();
                     transformer.transform(exiSource, result);
                     CotEvent cotEvent = CotEvent.parse(writer.toString());
@@ -987,7 +971,7 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                     InputSource is = new InputSource(new ByteArrayInputStream(payload.getBytes()));
                     SAXSource exiSource = new EXISource(exiFactory);
                     exiSource.setInputSource(is);
-                    TransformerFactory tf = createSecureTransformerFactory();
+                    TransformerFactory tf = XMLUtils.getTransformerFactory();
                     Transformer transformer = tf.newTransformer();
                     transformer.transform(exiSource, result);
                     CotEvent cotEvent = CotEvent.parse(writer.toString());
