@@ -13,12 +13,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
 public class ChunkManager {
     private static final String TAG = "ChunkManager";
     private static final int MAX_TOTAL_SIZE = 56 * 1024; // 56KB max
     private static final int MAX_CHUNKS = 286; // Maximum number of chunks
+    private static final Random random = new Random();
     private final int chunkSize;
     private final HashMap<Integer, byte[]> receivedChunks;
     private boolean isReceivingChunks;
@@ -55,8 +57,9 @@ public class ChunkManager {
         return chunks;
     }
     
-    public byte[] createChunkHeader(int totalSize) {
-        return String.format(Locale.US, Constants.CHUNK_HEADER_FORMAT, totalSize).getBytes();
+    public byte[] createChunkHeader(int messageId, int chunkNum, int totalChunks, int totalSize) {
+        return String.format(Locale.US, Constants.CHUNK_HEADER_FORMAT, 
+            messageId, chunkNum, totalChunks, totalSize).getBytes();
     }
     
     public byte[] combineHeaderAndChunk(byte[] header, byte[] chunk) {
@@ -93,61 +96,26 @@ public class ChunkManager {
             return false;
         }
         
-        byte[] header = createChunkHeader(data.length);
-        SharedPreferences.Editor editor = prefs.edit();
+        // Generate unique message ID
+        int messageId = random.nextInt(Integer.MAX_VALUE);
+        Log.d(TAG, "Sending chunked message " + messageId + " (" + chunks.size() + " chunks, " + data.length + " bytes)");
         
-        for (byte[] chunk : chunks) {
-            byte[] combined = combineHeaderAndChunk(header, chunk);
+        // Send each chunk with proper numbering
+        for (int i = 0; i < chunks.size(); i++) {
+            byte[] header = createChunkHeader(messageId, i, chunks.size(), data.length);
+            byte[] combined = combineHeaderAndChunk(header, chunks.get(i));
             
-            if (!sendSingleChunk(combined, meshService, prefs, editor, hopLimit, channel)) {
-                Log.e(TAG, "Failed to send chunk");
-                return false;
-            }
-        }
-        
-        // Send end marker
-        DataPacket endPacket = new DataPacket(
-            DataPacket.ID_BROADCAST,
-            Constants.CHUNK_END_MARKER,
-            Portnums.PortNum.ATAK_FORWARDER_VALUE,
-            DataPacket.ID_LOCAL,
-            System.currentTimeMillis(),
-            0,
-            MessageStatus.UNKNOWN,
-            3,
-            channel,
-            true, // wantAck must be true for chunks
-            0,  // hopStart
-            0f, // snr
-            0,  // rssi
-            null // replyId
-        );
-        
-        meshService.send(endPacket);
-        return true;
-    }
-    
-    private boolean sendSingleChunk(byte[] chunkData, IMeshService meshService, 
-                                   SharedPreferences prefs, SharedPreferences.Editor editor,
-                                   int hopLimit, int channel) throws Exception {
-        int packetId = meshService.getPacketId();
-        editor.putInt(Constants.PREF_PLUGIN_CHUNK_ID, packetId);
-        editor.putBoolean(Constants.PREF_PLUGIN_CHUNK_ACK, true);
-        editor.apply();
-        
-        int retries = 0;
-        while (retries < Constants.CHUNK_MAX_RETRIES) {
             DataPacket dp = new DataPacket(
                 DataPacket.ID_BROADCAST,
-                chunkData,
+                combined,
                 Portnums.PortNum.ATAK_FORWARDER_VALUE,
                 DataPacket.ID_LOCAL,
                 System.currentTimeMillis(),
-                packetId,
+                0,
                 MessageStatus.UNKNOWN,
                 hopLimit,
                 channel,
-                true, // wantAck must be true for chunks
+                false, // Don't wait for ACKs - let Meshtastic handle retransmissions
                 0,  // hopStart
                 0f, // snr
                 0,  // rssi
@@ -155,42 +123,42 @@ public class ChunkManager {
             );
             
             meshService.send(dp);
+            Log.d(TAG, "Sent chunk " + i + "/" + chunks.size() + " for message " + messageId);
             
-            // Wait for acknowledgment with timeout
-            long startTime = System.currentTimeMillis();
-            long timeout = Constants.CHUNK_ACK_TIMEOUT_MS * Constants.CHUNK_MAX_RETRIES;
-            
-            while (prefs.getBoolean(Constants.PREF_PLUGIN_CHUNK_ACK, false)) {
-                // Check for timeout
-                if (System.currentTimeMillis() - startTime > timeout) {
-                    throw new TimeoutException("Chunk acknowledgment timeout");
-                }
-                
-                // Check for error
-                if (prefs.getBoolean(Constants.PREF_PLUGIN_CHUNK_ERR, false)) {
-                    Log.d(TAG, "Chunk error received, retrying");
-                    editor.putBoolean(Constants.PREF_PLUGIN_CHUNK_ERR, false);
-                    editor.apply();
-                    retries++;
-                    break;
-                }
-                
-                // Small sleep to avoid busy waiting
-                try {
-                    Thread.sleep(50); // Check every 50ms instead of CHUNK_ACK_TIMEOUT_MS
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new InterruptedException("Chunk sending interrupted");
-                }
-            }
-            
-            if (!prefs.getBoolean(Constants.PREF_PLUGIN_CHUNK_ACK, false)) {
-                return true; // Successfully acknowledged
+            // Small delay between chunks to avoid overwhelming the radio
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedException("Chunk sending interrupted");
             }
         }
         
-        return false;
+        // Send end marker with message ID
+        String endMarker = "END_" + messageId + "_";
+        DataPacket endPacket = new DataPacket(
+            DataPacket.ID_BROADCAST,
+            endMarker.getBytes(),
+            Portnums.PortNum.ATAK_FORWARDER_VALUE,
+            DataPacket.ID_LOCAL,
+            System.currentTimeMillis(),
+            0,
+            MessageStatus.UNKNOWN,
+            hopLimit,
+            channel,
+            false,
+            0,  // hopStart
+            0f, // snr
+            0,  // rssi
+            null // replyId
+        );
+        
+        meshService.send(endPacket);
+        Log.d(TAG, "Sent END marker for message " + messageId);
+        return true;
     }
+    
+
     
     public void startReceiving(int totalSize) {
         if (totalSize <= 0 || totalSize > MAX_TOTAL_SIZE) {

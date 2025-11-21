@@ -40,11 +40,11 @@ public final class Constants {
     public static final int NOTIFICATION_ID = 42069;
     
     // Chunking
-    public static final int DEFAULT_CHUNK_SIZE = 200;
-    public static final String CHUNK_HEADER_FORMAT = "CHK_%d_";
+    public static final int DEFAULT_CHUNK_SIZE = 180; // Reduced from 200 to accommodate larger header
+    public static final String CHUNK_HEADER_FORMAT = "CHK_%d_%d_%d_%d_"; // msgId, chunkNum, totalChunks, totalSize
     public static final byte[] CHUNK_END_MARKER = {'E', 'N', 'D'};
-    public static final int CHUNK_ACK_TIMEOUT_MS = 250;
-    public static final int CHUNK_MAX_RETRIES = 20;
+    public static final int CHUNK_TIMEOUT_MS = 30000; // 30 seconds timeout for incomplete messages
+    public static final int MAX_ACTIVE_MESSAGES = 10; // Maximum concurrent chunked messages
     
     // Audio
     public static final int AUDIO_SAMPLE_RATE = 8000;

@@ -22,6 +22,7 @@ import com.atakmap.android.maps.tilesets.EquirectangularTilesetSupport;
 import com.atakmap.android.meshtastic.util.Constants;
 import com.atakmap.android.meshtastic.util.AckManager;
 import com.atakmap.android.meshtastic.util.FileTransferManager;
+import com.atakmap.android.meshtastic.util.MessageChunks;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -74,6 +75,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -114,12 +116,8 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
     private AudioTrack track = null;
     private int samplesBufSize = 0;
     private boolean audioPermissionGranted = false;
-    // chunking
-    private final HashMap<Integer, byte[]> chunkMap = new HashMap<>();
-    private boolean chunking = false;
-    private int chunkSize = 0;
-    private int chunkCount = 0;
-    private static final int MAX_CHUNK_MAP_SIZE = 1000; // Prevent unbounded growth
+    // chunking - new multi-message tracking
+    private final HashMap<Integer, MessageChunks> activeMessages = new HashMap<>();
     // misc
     private long c2 = 0;
     private int oldModemPreset;
@@ -849,142 +847,119 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
                 
                 // Signal file transfer completion
                 FileTransferManager.getInstance().completeTransfer();
-            } else if (message.startsWith("CHK")) {
-                Log.d(TAG, "Received Chunked message");
-                chunking = true;
-                if (chunkSize == 0) {
-                    try {
-                        chunkSize = Integer.parseInt(message.split("_")[1]);
-                        Log.d(TAG, "Chunk size: " + chunkSize);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to parse chunk size", e);
-                        // Reset chunking state on error
-                        chunking = false;
-                        chunkSize = 0;
-                        return;
-                    }
-                }
-                int chunk_hdr_size = String.format(Locale.US, "CHK_%d_", chunkSize).getBytes().length;
-                byte[] chunk = new byte[payload.getBytes().length - chunk_hdr_size];
-                try {
-                    System.arraycopy(payload.getBytes(), chunk_hdr_size, chunk, 0, payload.getBytes().length - chunk_hdr_size);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.d(TAG, "Failed to copy first chunk");
-                    // Don't continue processing if chunk copy failed
+            } else if (message.startsWith("CHK_")) {
+                // Ignore own messages
+                String myNodeID = MeshtasticMapComponent.getMyNodeID();
+                if (myNodeID != null && myNodeID.equals(payload.getFrom())) {
+                    Log.d(TAG, "Ignoring chunk from self");
                     return;
                 }
-
-                // check if this chunk has already been received
-                if (chunkMap.containsValue(chunk)) {
-                    Log.d(TAG, "Chunk already received");
-                    return;
-                } else {
-                    // Prevent unbounded growth - clear if too many chunks
-                    if (chunkMap.size() >= MAX_CHUNK_MAP_SIZE) {
-                        Log.w(TAG, "Chunk map exceeded maximum size, clearing");
-                        chunkMap.clear();
-                        chunking = false;
-                        chunkSize = 0;
-                        chunkCount = 0;
-                        return;
-                    }
-                    chunkMap.put(Integer.valueOf(chunkCount++), chunk);
-                }
-
-                if(prefs.getBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false)) {
-                    // caclulate progress
-                    //zi = (xi – min(x)) / (max(x) – min(x)) * 100
-                    mBuilder.setProgress(100, (int) Math.floor((chunkMap.size() - 1) / (chunkSize - 1) * 100), false);
-                    mNotifyManager.notify(id, mBuilder.build());
-                }
-            } else if (message.startsWith("END") && chunking) {
-                Log.d(TAG, "Chunking");
-                byte[] combined = new byte[chunkSize];
-
-                int i = 0;
-                boolean copyFailed = false;
-                for (byte[] b : chunkMap.values()) {
-                    try {
-                        System.arraycopy(b, 0, combined, i, b.length);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        Log.d(TAG, "Failed to copy in chunking");
-                        copyFailed = true;
-                        break;
-                    }
-                    i += b.length;
-                    Log.d(TAG, "" + i);
-                }
-
-                // done chunking clear accounting
-                chunkSize = 0;
-                chunking = false;
-                chunkMap.clear();
-                chunkCount = 0;
                 
-                // If copy failed, don't process the corrupted data
-                if (copyFailed) {
-                    Log.e(TAG, "Chunk assembly failed, discarding data");
+                // Parse new header format: CHK_<msgId>_<chunkNum>_<totalChunks>_<totalSize>_
+                String[] parts = message.split("_");
+                if (parts.length < 5) {
+                    Log.e(TAG, "Invalid chunk header format: " + message.substring(0, Math.min(50, message.length())));
                     return;
                 }
-
-                // this was a file transfer not chunks
-                if (prefs.getBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false)) {
-                    Log.d(TAG, "File Received");
-
-                    mBuilder.setContentText("Transfer complete")
-                            // Removes the progress bar
-                            .setProgress(0,0,false);
-                    mNotifyManager.notify(id, mBuilder.build());
-
-                    try {
-                        String path = String.format(Locale.US, "%s/%s/%s.zip", Environment.getExternalStorageDirectory().getAbsolutePath(), "atak/tools/datapackage", UUID.randomUUID().toString());
-                        Log.d(TAG, "Writing to: " + path);
-                        Files.write(new File(path).toPath(), combined);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                    // inform sender we're done recv
-                    DataPacket dp = new DataPacket(sender, new byte[]{'M', 'F', 'T'}, Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, getHopLimit(), getChannelIndex(), getWantsAck(), 0, 0f, 0, null);
-                    MeshtasticMapComponent.sendToMesh(dp);
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                        Log.d(TAG, "MFT interrupted");
-                    }
-
-                    //receive side, file transfer over
-                    editor = prefs.edit();
-                    editor.putBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false);
-                    editor.apply();
-                    return;
-                }
+                
                 try {
-                    EXIFactory exiFactory = DefaultEXIFactory.newInstance();
-                    StringWriter writer = new StringWriter();
-                    Result result = new StreamResult(writer);
-                    InputSource is = new InputSource(new ByteArrayInputStream(combined));
-                    SAXSource exiSource = new EXISource(exiFactory);
-                    exiSource.setInputSource(is);
-                    TransformerFactory tf = XMLUtils.getTransformerFactory();
-                    Transformer transformer = tf.newTransformer();
-                    transformer.transform(exiSource, result);
-                    CotEvent cotEvent = CotEvent.parse(writer.toString());
-
-                    if (cotEvent.isValid()) {
-                        Log.d(TAG, "Chunked CoT Received");
-                        CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
-                        if (prefs.getBoolean(Constants.PREF_PLUGIN_SERVER, false)) {
-                            CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                    int messageId = Integer.parseInt(parts[1]);
+                    int chunkNum = Integer.parseInt(parts[2]);
+                    int totalChunks = Integer.parseInt(parts[3]);
+                    int totalSize = Integer.parseInt(parts[4]);
+                    
+                    // Calculate header size
+                    String headerStr = String.format(Locale.US, "CHK_%d_%d_%d_%d_", 
+                        messageId, chunkNum, totalChunks, totalSize);
+                    int headerSize = headerStr.getBytes().length;
+                    
+                    // Extract chunk data
+                    byte[] chunkData = new byte[payload.getBytes().length - headerSize];
+                    System.arraycopy(payload.getBytes(), headerSize, chunkData, 0, chunkData.length);
+                    
+                    Log.d(TAG, "Received chunk " + chunkNum + "/" + totalChunks + 
+                               " for message " + messageId + " (" + chunkData.length + " bytes)");
+                    
+                    // Clean up timed-out messages
+                    cleanupTimedOutMessages();
+                    
+                    // Get or create message tracker
+                    MessageChunks msg = activeMessages.get(messageId);
+                    if (msg == null) {
+                        // Check if we have too many active messages
+                        if (activeMessages.size() >= Constants.MAX_ACTIVE_MESSAGES) {
+                            Log.w(TAG, "Too many active messages, dropping oldest");
+                            int oldestId = findOldestMessage();
+                            activeMessages.remove(oldestId);
                         }
-                    } else {
-                        Log.d(TAG, "Failed to chunk: " + new String(combined));
+                        
+                        msg = new MessageChunks(messageId, totalChunks, totalSize);
+                        activeMessages.put(messageId, msg);
+                        Log.d(TAG, "Started tracking message " + messageId);
                     }
-                } catch (Throwable e) {
-                    e.printStackTrace();
+                    
+                    // Add chunk (handles duplicates)
+                    if (msg.addChunk(chunkNum, chunkData)) {
+                        Log.d(TAG, "Message " + messageId + ": " + msg.getReceivedChunks() + 
+                                   "/" + msg.getTotalChunks() + " chunks received");
+                    } else {
+                        Log.d(TAG, "Duplicate or invalid chunk " + chunkNum + " for message " + messageId);
+                    }
+                    
+                    // Update progress for file transfers
+                    if (prefs.getBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false)) {
+                        int progress = (int)((msg.getReceivedChunks() * 100.0) / msg.getTotalChunks());
+                        mBuilder.setProgress(100, progress, false);
+                        mNotifyManager.notify(id, mBuilder.build());
+                    }
+                    
+                    // Check if complete
+                    if (msg.isComplete()) {
+                        Log.d(TAG, "Message " + messageId + " complete, reassembling");
+                        byte[] reassembled = msg.reassemble();
+                        activeMessages.remove(messageId);
+                        
+                        if (reassembled == null) {
+                            Log.e(TAG, "Failed to reassemble message " + messageId);
+                            return;
+                        }
+                        
+                        // Process the reassembled data
+                        processReassembledData(reassembled, prefs);
+                    }
+                    
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Failed to parse chunk header", e);
+                    return;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing chunk", e);
+                    return;
+                }
+            } else if (message.startsWith("END_")) {
+                // Parse END marker: END_<msgId>_
+                String[] parts = message.split("_");
+                if (parts.length >= 2) {
+                    try {
+                        int messageId = Integer.parseInt(parts[1]);
+                        Log.d(TAG, "Received END marker for message " + messageId);
+                        
+                        // Check if we have this message
+                        MessageChunks msg = activeMessages.get(messageId);
+                        if (msg != null && msg.isComplete()) {
+                            Log.d(TAG, "Message " + messageId + " complete with END marker");
+                            byte[] reassembled = msg.reassemble();
+                            activeMessages.remove(messageId);
+                            
+                            if (reassembled != null) {
+                                processReassembledData(reassembled, prefs);
+                            }
+                        } else if (msg != null) {
+                            Log.w(TAG, "END marker received but message " + messageId + 
+                                       " incomplete: " + msg.getReceivedChunks() + "/" + msg.getTotalChunks());
+                        }
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Failed to parse END marker", e);
+                    }
                 }
             } else {
                 try {
@@ -1665,5 +1640,150 @@ public class MeshtasticReceiver extends BroadcastReceiver implements CotServiceR
         }
         
         isPlaying = false;
+    }
+    
+    /**
+     * Clean up messages that have timed out
+     */
+    private void cleanupTimedOutMessages() {
+        List<Integer> toRemove = new ArrayList<>();
+        for (HashMap.Entry<Integer, MessageChunks> entry : activeMessages.entrySet()) {
+            if (entry.getValue().isTimedOut()) {
+                Log.w(TAG, "Message " + entry.getKey() + " timed out after " + 
+                           Constants.CHUNK_TIMEOUT_MS + "ms, discarding");
+                toRemove.add(entry.getKey());
+            }
+        }
+        for (Integer id : toRemove) {
+            activeMessages.remove(id);
+        }
+    }
+
+    /**
+     * Find the oldest active message
+     */
+    private int findOldestMessage() {
+        int oldestId = -1;
+        long oldestTime = Long.MAX_VALUE;
+        for (HashMap.Entry<Integer, MessageChunks> entry : activeMessages.entrySet()) {
+            if (entry.getValue().getStartTime() < oldestTime) {
+                oldestTime = entry.getValue().getStartTime();
+                oldestId = entry.getKey();
+            }
+        }
+        return oldestId;
+    }
+
+    /**
+     * Process reassembled data (CoT event or file)
+     */
+    private void processReassembledData(byte[] combined, SharedPreferences prefs) {
+        // This was a file transfer
+        if (prefs.getBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false)) {
+            Log.d(TAG, "File Received");
+
+            mBuilder.setContentText("Transfer complete")
+                    .setProgress(0,0,false);
+            mNotifyManager.notify(id, mBuilder.build());
+
+            try {
+                String path = String.format(Locale.US, "%s/%s/%s.zip", 
+                    Environment.getExternalStorageDirectory().getAbsolutePath(), 
+                    "atak/tools/datapackage", UUID.randomUUID().toString());
+                Log.d(TAG, "Writing to: " + path);
+                Files.write(new File(path).toPath(), combined);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            // Inform sender we're done
+            DataPacket dp = new DataPacket(sender, new byte[]{'M', 'F', 'T'}, 
+                Portnums.PortNum.ATAK_FORWARDER_VALUE, DataPacket.ID_LOCAL, 
+                System.currentTimeMillis(), 0, MessageStatus.UNKNOWN, 
+                getHopLimit(), getChannelIndex(), getWantsAck(), 0, 0f, 0, null);
+            MeshtasticMapComponent.sendToMesh(dp);
+            
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            editor = prefs.edit();
+            editor.putBoolean(Constants.PREF_PLUGIN_FILE_TRANSFER, false);
+            editor.apply();
+            return;
+        }
+        
+        // This was a CoT event (marker)
+        try {
+            EXIFactory exiFactory = DefaultEXIFactory.newInstance();
+            StringWriter writer = new StringWriter();
+            Result result = new StreamResult(writer);
+            InputSource is = new InputSource(new ByteArrayInputStream(combined));
+            SAXSource exiSource = new EXISource(exiFactory);
+            exiSource.setInputSource(is);
+            TransformerFactory tf = XMLUtils.getTransformerFactory();
+            Transformer transformer = tf.newTransformer();
+            transformer.transform(exiSource, result);
+            CotEvent cotEvent = CotEvent.parse(writer.toString());
+
+            if (cotEvent.isValid()) {
+                Log.d(TAG, "Chunked CoT Received and reassembled successfully");
+                CotMapComponent.getInternalDispatcher().dispatch(cotEvent);
+                if (prefs.getBoolean(Constants.PREF_PLUGIN_SERVER, false)) {
+                    CotMapComponent.getExternalDispatcher().dispatch(cotEvent);
+                }
+            } else {
+                Log.e(TAG, "Reassembled CoT event is invalid");
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to process reassembled CoT event", e);
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Clean up messages that have timed out
+     */
+    private void cleanupTimedOutMessages() {
+        List<Integer> toRemove = new ArrayList<>();
+        for (Map.Entry<Integer, MessageChunks> entry : activeMessages.entrySet()) {
+            if (entry.getValue().isTimedOut()) {
+                MessageChunks msg = entry.getValue();
+                Log.w(TAG, "Message " + entry.getKey() + " timed out after " + 
+                           Constants.CHUNK_TIMEOUT_MS + "ms (" + msg.getReceivedChunks() + 
+                           "/" + msg.getTotalChunks() + " chunks received), discarding");
+                toRemove.add(entry.getKey());
+            }
+        }
+        if (!toRemove.isEmpty()) {
+            Log.d(TAG, "Cleaning up " + toRemove.size() + " timed-out message(s)");
+            for (Integer id : toRemove) {
+                activeMessages.remove(id);
+            }
+        }
+    }
+
+    /**
+     * Find the oldest active message
+     */
+    private int findOldestMessage() {
+        int oldestId = -1;
+        long oldestTime = Long.MAX_VALUE;
+        MessageChunks oldestMsg = null;
+        for (Map.Entry<Integer, MessageChunks> entry : activeMessages.entrySet()) {
+            if (entry.getValue().getStartTime() < oldestTime) {
+                oldestTime = entry.getValue().getStartTime();
+                oldestId = entry.getKey();
+                oldestMsg = entry.getValue();
+            }
+        }
+        if (oldestMsg != null) {
+            long age = System.currentTimeMillis() - oldestTime;
+            Log.d(TAG, "Oldest message is " + oldestId + " (age: " + age + "ms, " + 
+                       oldestMsg.getReceivedChunks() + "/" + oldestMsg.getTotalChunks() + " chunks)");
+        }
+        return oldestId;
     }
 }
