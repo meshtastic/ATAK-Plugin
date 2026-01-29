@@ -85,9 +85,7 @@ allprojects {
         google()
         mavenCentral()
         mavenLocal()
-        maven {
-            url "https://jitpack.io"
-        }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -316,6 +314,17 @@ dependencies {
     implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'com.alphacephei:vosk-android:0.3.47@aar'
     implementation project(':models')
+
+    def meshtasticVersion = "v2.7.12"
+
+    // The core AIDL interface (IMeshService)
+    implementation "com.github.meshtastic.Meshtastic-Android:core-api:$meshtasticVersion"
+
+    // The Parcelable data models (DataPacket, MeshUser, NodeInfo, etc.)
+    implementation "com.github.meshtastic.Meshtastic-Android:core-model:$meshtasticVersion"
+
+    // The underlying Protobuf definitions
+    implementation "com.github.meshtastic.Meshtastic-Android:core-proto:$meshtasticVersion"
 
     // Osmdroid & Maps
     def osmdroid_version = '6.1.14'
