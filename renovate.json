@@ -2,5 +2,20 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "excludePackagePrefixes": [
+        "com.github.meshtastic"
+      ],
+      "enabled": false
+    },
+    {
+      "matchPackagePrefixes": [
+        "com.github.meshtastic"
+      ],
+      "allowedVersions": "/^v\\d+\\.\\d+\\.\\d+$/",
+      "groupName": "Meshtastic Dependencies"
+    }
   ]
 }
