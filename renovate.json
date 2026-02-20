@@ -5,17 +5,17 @@
   ],
   "packageRules": [
     {
-      "excludePackagePrefixes": [
-        "com.github.meshtastic"
-      ],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "!com.github.meshtastic{/,}**"
+      ]
     },
     {
-      "matchPackagePrefixes": [
-        "com.github.meshtastic"
-      ],
       "allowedVersions": "/^v\\d+\\.\\d+\\.\\d+$/",
-      "groupName": "Meshtastic Dependencies"
+      "groupName": "Meshtastic Dependencies",
+      "matchPackageNames": [
+        "com.github.meshtastic{/,}**"
+      ]
     }
   ]
 }
