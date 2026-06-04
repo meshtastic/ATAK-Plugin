@@ -310,13 +310,13 @@ dependencies {
     implementation project(':models')
 
     // The underlying Protobuf definitions
-    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-proto:v2.7.13"
+    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-proto:v2.7.14"
 
     // The Parcelable data models (DataPacket, MeshUser, NodeInfo, etc.)
-    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-model:v2.7.13"
+    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-model:v2.7.14"
 
     // The core AIDL interface (IMeshService)
-    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-api:v2.7.13"
+    implementation "com.github.meshtastic.Meshtastic-Android:meshtastic-android-api:v2.7.14"
 
 
     // Osmdroid & Maps
