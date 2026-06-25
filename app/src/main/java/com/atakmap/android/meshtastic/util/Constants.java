@@ -3,9 +3,20 @@ package com.atakmap.android.meshtastic.util;
 public final class Constants {
     private Constants() {}
 
-    // Service Connection
+    // Service Connection.
+    // PACKAGE_NAME stays at com.geeksville.mesh — that's the Meshtastic
+    // Android app's applicationId (see the app's build.gradle), unchanged.
+    // CLASS_NAME tracks the foreground service class. In Meshtastic Android
+    // v2.7.14 the service class was repackaged from
+    // com.geeksville.mesh.service.MeshService to
+    // org.meshtastic.core.service.MeshService as part of the multi-module
+    // KMP refactor. The plugin's MeshServiceManager already imports the new
+    // org.meshtastic.core.service.IMeshService AIDL stub; the bind-target
+    // class name needed to match. Without this fix, bindService() silently
+    // fails to resolve the component on Meshtastic Android 2.7.14+.
+    // See: https://github.com/meshtastic/ATAK-Plugin/issues/111
     public static final String PACKAGE_NAME = "com.geeksville.mesh";
-    public static final String CLASS_NAME = "com.geeksville.mesh.service.MeshService";
+    public static final String CLASS_NAME = "org.meshtastic.core.service.MeshService";
     
     // Actions
     public static final String ACTION_MESH_CONNECTED = "com.geeksville.mesh.MESH_CONNECTED";
